@@ -80,8 +80,7 @@ if (__DEV__) {
   }
 }
 
-// A Fiber is work on a Component that needs to be done or was done. There can
-// be more than one per component.
+// // fiber节点对象定义
 export type Fiber = {|
   // These first fields are conceptually members of an Instance. This used to
   // be split into a separate type and intersected with the other Fiber fields,
@@ -94,7 +93,7 @@ export type Fiber = {|
   // minimize the number of objects created during the initial render.
 
   // Tag identifying the type of fiber.
-  tag: WorkTag,
+  tag: WorkTag, // 用于标记fiber的类型
 
   // Unique identifier of this child.
   key: null | string,
@@ -115,14 +114,12 @@ export type Fiber = {|
 
   // Remaining fields belong to Fiber
 
-  // The Fiber to return to after finishing processing this one.
-  // This is effectively the parent, but there can be multiple parents (two)
-  // so this is only the parent of the thing we're currently processing.
-  // It is conceptually the same as the return address of a stack frame.
+  // 父fiber节点对象
   return: Fiber | null,
 
-  // Singly Linked List Tree Structure.
+  // 子fiber节点对象
   child: Fiber | null,
+  // 下一个兄弟fiber节点对象
   sibling: Fiber | null,
   index: number,
 
@@ -134,7 +131,7 @@ export type Fiber = {|
   pendingProps: any, // This type will be more specific once we overload the tag.
   memoizedProps: any, // The props used to create the output.
 
-  // A queue of state updates and callbacks.
+  // 更新队列
   updateQueue: UpdateQueue<any> | null,
 
   // The state used to create the output
@@ -212,6 +209,7 @@ if (__DEV__) {
   debugCounter = 1;
 }
 
+
 function FiberNode(
   tag: WorkTag,
   pendingProps: mixed,
@@ -271,19 +269,7 @@ function FiberNode(
   }
 }
 
-// This is a constructor function, rather than a POJO constructor, still
-// please ensure we do the following:
-// 1) Nobody should add any instance methods on this. Instance methods can be
-//    more difficult to predict when they get optimized and they are almost
-//    never inlined properly in static compilers.
-// 2) Nobody should rely on `instanceof Fiber` for type testing. We should
-//    always know when it is a fiber.
-// 3) We might want to experiment with using numeric keys since they are easier
-//    to optimize in a non-JIT environment.
-// 4) We can easily go from a constructor to a createFiber object literal if that
-//    is faster.
-// 5) It should be easy to port this to a C struct and keep a C implementation
-//    compatible.
+// 新建一个fiber节点
 const createFiber = function(
   tag: WorkTag,
   pendingProps: mixed,
@@ -398,6 +384,7 @@ export function createWorkInProgress(
   return workInProgress;
 }
 
+// 根据mode创建fiber对象
 export function createHostRootFiber(isConcurrent: boolean): Fiber {
   let mode = isConcurrent ? ConcurrentMode | StrictMode : NoContext;
 

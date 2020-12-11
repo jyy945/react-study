@@ -448,6 +448,7 @@ function unwindWork(
   }
 }
 
+// 回滚被打断的任务
 function unwindInterruptedWork(interruptedWork: Fiber) {
   switch (interruptedWork.tag) {
     case ClassComponent: {

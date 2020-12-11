@@ -338,44 +338,45 @@ function ReactRoot(
   isConcurrent: boolean,
   hydrate: boolean,
 ) {
-  const root = DOMRenderer.createContainer(container, isConcurrent, hydrate);
-  this._internalRoot = root;
-}
-ReactRoot.prototype.render = function(
-  children: ReactNodeList,
-  callback: ?() => mixed,
-): Work {
-  const root = this._internalRoot;
-  const work = new ReactWork();
-  callback = callback === undefined ? null : callback;
-  if (__DEV__) {
-    warnOnInvalidCallback(callback, 'render');
+    const root = DOMRenderer.createContainer(container, isConcurrent, hydrate); // 创建fiberRoot
+    this._internalRoot = root;  // 将fiberRoot赋值给_internalRoot
   }
-  if (callback !== null) {
-    work.then(callback);
-  }
-  DOMRenderer.updateContainer(children, root, null, work._onCommit);
-  return work;
-};
-ReactRoot.prototype.unmount = function(callback: ?() => mixed): Work {
-  const root = this._internalRoot;
-  const work = new ReactWork();
-  callback = callback === undefined ? null : callback;
-  if (__DEV__) {
-    warnOnInvalidCallback(callback, 'render');
-  }
-  if (callback !== null) {
-    work.then(callback);
-  }
-  DOMRenderer.updateContainer(null, root, null, work._onCommit);
-  return work;
-};
-ReactRoot.prototype.legacy_renderSubtreeIntoContainer = function(
-  parentComponent: ?React$Component<any, any>,
-  children: ReactNodeList,
-  callback: ?() => mixed,
-): Work {
-  const root = this._internalRoot;
+  ReactRoot.prototype.render = function(
+    children: ReactNodeList,
+    callback: ?() => mixed,
+  ): Work {
+    const root = this._internalRoot;  // 获取fiberRoot
+    const work = new ReactWork();
+    callback = callback === undefined ? null : callback;
+    if (__DEV__) {
+      warnOnInvalidCallback(callback, 'render');
+    }
+    if (callback !== null) {
+      work.then(callback);
+    }
+    // 开始更新
+    DOMRenderer.updateContainer(children, root, null, work._onCommit);
+    return work;
+  };
+  ReactRoot.prototype.unmount = function(callback: ?() => mixed): Work {
+    const root = this._internalRoot;
+    const work = new ReactWork();
+    callback = callback === undefined ? null : callback;
+    if (__DEV__) {
+      warnOnInvalidCallback(callback, 'render');
+    }
+    if (callback !== null) {
+      work.then(callback);
+    }
+    DOMRenderer.updateContainer(null, root, null, work._onCommit);
+    return work;
+  };
+  ReactRoot.prototype.legacy_renderSubtreeIntoContainer = function(
+    parentComponent: ?React$Component<any, any>,
+    children: ReactNodeList,
+    callback: ?() => mixed,
+  ): Work {
+  const root = this._internalRoot;  // 获取fiberRoot
   const work = new ReactWork();
   callback = callback === undefined ? null : callback;
   if (__DEV__) {
@@ -434,6 +435,8 @@ function isValidContainer(node) {
   );
 }
 
+// 根据dom节点获取react的根节点元素
+// 若container的为document类型，则返回该节点，否则返回其第一个子元素
 function getReactRootElementInContainer(container: any) {
   if (!container) {
     return null;
@@ -446,6 +449,7 @@ function getReactRootElementInContainer(container: any) {
   }
 }
 
+// 是否需要调和container内的元素，浏览器端渲染为false
 function shouldHydrateDueToLegacyHeuristic(container) {
   const rootElement = getReactRootElementInContainer(container);
   return !!(
@@ -463,16 +467,19 @@ ReactGenericBatching.setBatchingImplementation(
 
 let warnedAboutHydrateAPI = false;
 
+// 通过dom节点创建fiberRoot对象
 function legacyCreateRootFromDOMContainer(
   container: DOMContainer,
   forceHydrate: boolean,
 ): Root {
+  // 是否需要调和container内的元素，浏览器端渲染为false
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
-  // First clear any existing content.
+  // 浏览器端渲染执行
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+    // 清空container中的所有dom节点
     while ((rootSibling = container.lastChild)) {
       if (__DEV__) {
         if (
@@ -503,9 +510,9 @@ function legacyCreateRootFromDOMContainer(
       );
     }
   }
-  // Legacy roots are not async by default.
+  // 默认不是异步的
   const isConcurrent = false;
-  return new ReactRoot(container, isConcurrent, shouldHydrate);
+  return new ReactRoot(container, isConcurrent, shouldHydrate); // 为react创建reactRoot
 }
 
 function legacyRenderSubtreeIntoContainer(
@@ -529,7 +536,8 @@ function legacyRenderSubtreeIntoContainer(
   // member of intersection type." Whyyyyyy.
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
-    // Initial mount
+    // 为container创建ReactRoot对象
+    // 通过会创建fiberRoot对象赋值给reactRoot对象的_internalRoot
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
@@ -541,7 +549,7 @@ function legacyRenderSubtreeIntoContainer(
         originalCallback.call(instance);
       };
     }
-    // Initial mount should not be batched.
+    // 首次渲染不使用批量更新
     DOMRenderer.unbatchedUpdates(() => {
       if (parentComponent != null) {
         root.legacy_renderSubtreeIntoContainer(
@@ -588,6 +596,7 @@ function createPortal(
   return ReactPortal.createPortal(children, container, null, key);
 }
 
+// reactDom对象定义
 const ReactDOM: Object = {
   createPortal,
 

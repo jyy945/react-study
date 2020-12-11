@@ -18,9 +18,8 @@ export const Never = MAX_SIGNED_31_BIT_INT;
 const UNIT_SIZE = 10;
 const MAGIC_NUMBER_OFFSET = 2;
 
-// 1 unit of expiration time represents 10ms.
+// 一个单位的expiration time表示10ms
 export function msToExpirationTime(ms: number): ExpirationTime {
-  // Always add an offset so that we don't clash with the magic number for NoWork.
   return ((ms / UNIT_SIZE) | 0) + MAGIC_NUMBER_OFFSET;
 }
 
@@ -46,9 +45,10 @@ function computeExpirationBucket(
   );
 }
 
-export const LOW_PRIORITY_EXPIRATION = 5000;
-export const LOW_PRIORITY_BATCH_SIZE = 250;
+export const LOW_PRIORITY_EXPIRATION = 5000; // 过期时间
+export const LOW_PRIORITY_BATCH_SIZE = 250; //
 
+// 计算async的expiration time
 export function computeAsyncExpiration(
   currentTime: ExpirationTime,
 ): ExpirationTime {

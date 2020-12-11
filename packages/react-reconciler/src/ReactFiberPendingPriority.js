@@ -26,7 +26,7 @@ export function markPendingPriorityLevel(
   root.didError = false;
 
   // Update the latest and earliest pending times
-  const earliestPendingTime = root.earliestPendingTime;
+  const earliestPendingTime = root.earliestPendingTime; // 最老和最新的不确定是否会挂起的优先级（所有任务进来一开始都是这个状态）
   if (earliestPendingTime === NoWork) {
     // No other pending updates.
     root.earliestPendingTime = root.latestPendingTime = expirationTime;

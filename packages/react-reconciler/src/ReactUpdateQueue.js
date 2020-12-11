@@ -149,6 +149,7 @@ if (__DEV__) {
   };
 }
 
+// 创建updateQueue，是一个单向链表
 export function createUpdateQueue<State>(baseState: State): UpdateQueue<State> {
   const queue: UpdateQueue<State> = {
     baseState,
@@ -199,20 +200,20 @@ export function createUpdate(expirationTime: ExpirationTime): Update<*> {
   };
 }
 
+// 将更新加入更新队列
 function appendUpdateToQueue<State>(
   queue: UpdateQueue<State>,
   update: Update<State>,
 ) {
-  // Append the update to the end of the list.
-  if (queue.lastUpdate === null) {
-    // Queue is empty
+  if (queue.lastUpdate === null) { // 若更新队列为空，则插入
     queue.firstUpdate = queue.lastUpdate = update;
-  } else {
+  } else {  // 若更新队列不为空，则放在队尾
     queue.lastUpdate.next = update;
     queue.lastUpdate = update;
   }
 }
 
+// 将更新放入更新队列
 export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   // Update queues are created lazily.
   const alternate = fiber.alternate;

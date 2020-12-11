@@ -130,7 +130,7 @@ function scheduleRootUpdate(
     }
   }
 
-  const update = createUpdate(expirationTime);
+  const update = createUpdate(expirationTime); // 创建update
   // Caution: React DevTools currently depends on this property
   // being called "element".
   update.payload = {element};
@@ -145,21 +145,22 @@ function scheduleRootUpdate(
     );
     update.callback = callback;
   }
+  // // 将更新放入更新队列
   enqueueUpdate(current, update);
 
+  // 开始对任务进行调度
   scheduleWork(current, expirationTime);
   return expirationTime;
 }
 
 export function updateContainerAtExpirationTime(
   element: ReactNodeList,
-  container: OpaqueRoot,
+  container: OpaqueRoot, // fiberRoot
   parentComponent: ?React$Component<any, any>,
   expirationTime: ExpirationTime,
   callback: ?Function,
 ) {
-  // TODO: If this is a nested container, this won't be the root.
-  const current = container.current;
+  const current = container.current; // fiber
 
   if (__DEV__) {
     if (ReactFiberInstrumentation.debugTool) {
@@ -179,7 +180,7 @@ export function updateContainerAtExpirationTime(
   } else {
     container.pendingContext = context;
   }
-
+  // 开始对rootFiber 的update进行调度
   return scheduleRootUpdate(current, element, expirationTime, callback);
 }
 
@@ -264,6 +265,10 @@ function findHostInstanceWithWarning(
   return findHostInstance(component);
 }
 
+// 创建fiberRoot对象
+// 内部将创建一个rootFiber对象
+// fiberRoot.current = rootFiber;
+// rootFiber.stateNode = filberRoot;
 export function createContainer(
   containerInfo: Container,
   isConcurrent: boolean,
@@ -272,14 +277,17 @@ export function createContainer(
   return createFiberRoot(containerInfo, isConcurrent, hydrate);
 }
 
+// 更新fiber树
+// 首先计算expiration time，然后根据expiration time更新
 export function updateContainer(
   element: ReactNodeList,
-  container: OpaqueRoot,
+  container: OpaqueRoot,  // fiberRoot
   parentComponent: ?React$Component<any, any>,
   callback: ?Function,
 ): ExpirationTime {
-  const current = container.current;
+  const current = container.current; // 获取fiber对象
   const currentTime = requestCurrentTime();
+  // 为fiber计算expiration time
   const expirationTime = computeExpirationForFiber(currentTime, current);
   return updateContainerAtExpirationTime(
     element,

@@ -99,16 +99,17 @@ export type FiberRoot = {
   ...ProfilingOnlyFiberRootProperties,
 };
 
+// 创建fiberRoot对象
 export function createFiberRoot(
   containerInfo: any,
   isConcurrent: boolean,
   hydrate: boolean,
 ): FiberRoot {
-  // Cyclic construction. This cheats the type system right now because
-  // stateNode is any.
+  // 首先创建一个空的rootFiber对象
   const uninitializedFiber = createHostRootFiber(isConcurrent);
 
   let root;
+  // 创建fiberRoot对象
   if (enableSchedulerTracing) {
     root = ({
       current: uninitializedFiber,
@@ -164,7 +165,7 @@ export function createFiberRoot(
       nextScheduledRoot: null,
     }: BaseFiberRootProperties);
   }
-
+  // 为fiberRoot和rootFiber构建联系
   uninitializedFiber.stateNode = root;
 
   // The reason for the way the Flow types are structured in this file,
