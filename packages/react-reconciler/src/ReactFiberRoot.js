@@ -57,10 +57,11 @@ type BaseFiberRootProperties = {|
   didError: boolean,
 
   pendingCommitExpirationTime: ExpirationTime,
-  // A finished work-in-progress HostRoot that's ready to be committed.
+  // 已经完成的任务的FiberRoot对象，如果你只有一个Root，那他永远只可能是这个Root对应的Fiber，或者是null
+  // 在commit阶段只会处理这个值对应的任务
   finishedWork: Fiber | null,
-  // Timeout handle returned by setTimeout. Used to cancel a pending timeout, if
-  // it's superseded by a new one.
+  // 在任务被挂起的时候通过setTimeout设置的返回内容，
+  // 用来下一次如果有新的任务挂起时清理还没触发的timeout
   timeoutHandle: TimeoutHandle | NoTimeout,
   // Top context object, used by renderSubtreeIntoContainer
   context: Object | null,
