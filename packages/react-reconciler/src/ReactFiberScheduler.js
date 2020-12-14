@@ -1154,7 +1154,7 @@ function renderRoot(
     'renderRoot was called recursively. This error is likely caused ' +
       'by a bug in React. Please file an issue.',
   );
-  isWorking = true; // 标记为正在工作状态
+  isWorking = true; // 标记为正在工作状态，在render和commit阶段的开始都会设置为true，阶段结束后设置为false
   ReactCurrentOwner.currentDispatcher = Dispatcher;
 
   const expirationTime = root.nextExpirationTimeToWorkOn;
@@ -1871,7 +1871,10 @@ function recomputeCurrentRendererTime() {
   currentRendererTime = msToExpirationTime(currentTimeMs);
 }
 
-// 对异步的任务进行调度
+// 对异步任务的回调进行调度
+// 首先查看是否已经有一个回调正在执行，
+// 若有，则去查看当前的root任务的优先级是否高于当前正在调度的回调的优先级，高的话就取消当前正在执行的回调的执行。
+// 若没有回调正在执行，则为执行回调做准备，包括为设置callbackExpirationTime为当前root的过期时间，然后调用模拟的requestIdleCallback并执行
 function scheduleCallbackWithExpirationTime(
   root: FiberRoot,
   expirationTime: ExpirationTime,
@@ -2003,10 +2006,9 @@ function requestCurrentTime() {
   // time will be updated.
   return currentSchedulerTime;
 }
-
-// requestWork is called by the scheduler whenever a root receives an update.
-// It's up to the renderer to call renderRoot at some point in the future.
 // 请求任务，当fiberRoot接收到一个update后，会被scheduler调用
+// 首先将root放入scheduleRoot链表中
+// 然后根据expirationTime是同步还是异步执行不同的操作
 function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   // 将fiberRoot加入到单向链表中，并更新该root的优先级
   addRootToSchedule(root, expirationTime);
@@ -2030,7 +2032,7 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   if (expirationTime === Sync) {
     performSyncWork();  // 同步执行任务
   } else {
-    scheduleCallbackWithExpirationTime(root, expirationTime); // 异步执行任务
+    scheduleCallbackWithExpirationTime(root, expirationTime); // 对异步任务的回调进行调度
   }
 }
 
@@ -2152,13 +2154,15 @@ function performSyncWork() {
 }
 
 // 执行任务
+// 首先会在scheduleRoot链表中查找优先级最高的任务，使用该任务对nextFlushedRoot和nextFlushedExpirationTime进行赋值；
+// 然后判断deadline是否存在，若不存在说明是要去执行同步任务。则遍历链表中所有的任务并执行
 function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
   deadline = dl;
 
   // 找到最高优先级
   findHighestPriorityRoot();
 
-  // 若为同步，则直接将root中的所有同步任务执行
+  // 若deadline不为null表示为异步，则去执行所有的过期任务
   if (deadline !== null) {
     recomputeCurrentRendererTime();
     currentSchedulerTime = currentRendererTime;
@@ -2275,7 +2279,7 @@ function performWorkOnRoot(
       'by a bug in React. Please file an issue.',
   );
 
-  isRendering = true; // 设置为rendering状态，表示进入渲染阶段
+  isRendering = true; // 设置为rendering状态，表示进入执行阶段
 
   if (deadline === null || isExpired) { // 同步或者是已经过期的任务
     let finishedWork = root.finishedWork;

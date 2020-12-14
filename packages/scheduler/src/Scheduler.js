@@ -27,14 +27,14 @@ var NORMAL_PRIORITY_TIMEOUT = 5000;
 // Never times out
 var IDLE_PRIORITY = maxSigned31BitInt;
 
-// Callbacks are stored as a circular, doubly linked list.
+// callback链表的第一个callback节点，callback链表是一个双向循环链表
 var firstCallbackNode = null;
 
 var currentPriorityLevel = NormalPriority;
 var currentEventStartTime = -1;
 var currentExpirationTime = -1;
 
-// This is set when a callback is being executed, to prevent re-entrancy.
+// 当callback执行时，将会设置为true，用于标记callback是否已经被执行
 var isExecutingCallback = false;
 
 var isHostCallbackScheduled = false;
@@ -78,11 +78,11 @@ var deadlineObject = {
 };
 
 function ensureHostCallbackIsScheduled() {
-  if (isExecutingCallback) {
-    // Don't schedule work yet; wait until the next time we yield.
+  if (isExecutingCallback) { // 若已经有回调正在执行，则退出，不能打断已经执行的回调
     return;
   }
   // Schedule the host callback using the earliest expiration in the list.
+  // 执行优先级最高的回调，若已经有正在执行的回调，则取消窒息感
   var expirationTime = firstCallbackNode.expirationTime;
   if (!isHostCallbackScheduled) {
     isHostCallbackScheduled = true;
@@ -334,10 +334,7 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     previous: null,
   };
 
-  // Insert the new callback into the list, ordered first by expiration, then
-  // by insertion. So the new callback is inserted any other callback with
-  // equal expiration.
-  if (firstCallbackNode === null) {
+  if (firstCallbackNode === null) { // callback链表为空，将当前的callback放入到链表中
     // This is the first callback in the list.
     firstCallbackNode = newNode.next = newNode.previous = newNode;
     ensureHostCallbackIsScheduled();
@@ -534,7 +531,7 @@ if (typeof window !== 'undefined' && window._schedMock) {
     }
   }
 
-  var scheduledHostCallback = null;
+  var scheduledHostCallback = null; // 以调度的callback
   var isMessageEventScheduled = false;
   var timeoutTime = -1;
 
@@ -654,6 +651,7 @@ if (typeof window !== 'undefined' && window._schedMock) {
     }
   };
 
+  // 发起callback调度
   requestHostCallback = function(callback, absoluteTimeout) {
     scheduledHostCallback = callback;
     timeoutTime = absoluteTimeout;
