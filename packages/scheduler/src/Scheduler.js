@@ -37,7 +37,7 @@ var currentExpirationTime = -1;
 // 当callback执行时，将会设置为true，用于标记callback是否已经被执行
 var isExecutingCallback = false;
 
-var isHostCallbackScheduled = false;
+var isHostCallbackScheduled = false; // callbackNode是否已经被调度
 
 var hasNativePerformanceNow =
   typeof performance === 'object' && typeof performance.now === 'function';
@@ -90,6 +90,7 @@ function ensureHostCallbackIsScheduled() {
     // Cancel the existing host callback.
     cancelHostCallback();
   }
+  // 发起调度  664
   requestHostCallback(flushWork, expirationTime);
 }
 
@@ -297,6 +298,8 @@ function unstable_wrapCallback(callback) {
   };
 }
 
+// 对callback进行调度
+// 首先根据callback的不同优先级计算过期时间
 function unstable_scheduleCallback(callback, deprecated_options) {
   var startTime =
     currentEventStartTime !== -1 ? currentEventStartTime : getCurrentTime();
@@ -310,6 +313,7 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     // FIXME: Remove this branch once we lift expiration times out of React.
     expirationTime = startTime + deprecated_options.timeout;
   } else {
+    // 根据不同的优先级计算过期时间
     switch (currentPriorityLevel) {
       case ImmediatePriority:
         expirationTime = startTime + IMMEDIATE_PRIORITY_TIMEOUT;
@@ -326,6 +330,7 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     }
   }
 
+  // 初始化node对象
   var newNode = {
     callback,
     priorityLevel: currentPriorityLevel,
@@ -334,7 +339,7 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     previous: null,
   };
 
-  if (firstCallbackNode === null) { // callback链表为空，将当前的callback放入到链表中
+  if (firstCallbackNode === null) { // callbackNode链表为空，将当前的callbackNode放入到链表中
     // This is the first callback in the list.
     firstCallbackNode = newNode.next = newNode.previous = newNode;
     ensureHostCallbackIsScheduled();
@@ -351,15 +356,17 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     } while (node !== firstCallbackNode);
 
     if (next === null) {
-      // No callback with a later expiration was found, which means the new
-      // callback has the latest expiration in the list.
+      // 所有callbackNode的优先级都高于newNode
+      // 则首先执行callbackNode链表中的第一个node
       next = firstCallbackNode;
     } else if (next === firstCallbackNode) {
-      // The new callback has the earliest expiration in the entire list.
+      // 若第一个的callbackNode的优先级低于newNode，说明newNode的优先级最高
+      // 则将newNode设置为链表第一个
       firstCallbackNode = newNode;
       ensureHostCallbackIsScheduled();
     }
 
+    // 将newNode插入到链表中
     var previous = next.previous;
     previous.next = next.previous = newNode;
     newNode.next = next;
@@ -426,6 +433,7 @@ var localRequestAnimationFrame =
 var localCancelAnimationFrame =
   typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : undefined;
 
+// 获取当前时间，457、461
 var getCurrentTime;
 
 // requestAnimationFrame does not run when the tab is in the background. If

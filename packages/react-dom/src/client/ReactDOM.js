@@ -651,6 +651,7 @@ const ReactDOM: Object = {
     container: DOMContainer,
     callback: ?Function,
   ) {
+    // 将render子树添加到container中
     return legacyRenderSubtreeIntoContainer(
       null,
       element,

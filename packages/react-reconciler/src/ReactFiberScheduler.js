@@ -1963,9 +1963,7 @@ function onCommit(root, expirationTime) {
 
 // 获取当前时间
 function requestCurrentTime() {
-  // requestCurrentTime is called by the scheduler to compute an expiration
-  // time.
-  //
+  // requestCurrentTime方法被schedule调用来计算 expiration time
   // Expiration times are computed by adding to the current time (the start
   // time). However, if two updates are scheduled within the same event, we
   // should treat their start times as simultaneous, even if the actual clock
@@ -1987,9 +1985,9 @@ function requestCurrentTime() {
     // We're already rendering. Return the most recently read time.
     return currentSchedulerTime;
   }
-  // Check if there's pending work.
+  // 找到优先级最高的fiberRoot
   findHighestPriorityRoot();
-  if (
+  if ( // 当前scheduleRoot list中没有root
     nextFlushedExpirationTime === NoWork ||
     nextFlushedExpirationTime === Never
   ) {
