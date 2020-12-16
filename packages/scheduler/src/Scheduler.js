@@ -28,8 +28,8 @@ var isExecutingCallback = false;
 // isHostCallbackScheduled代表开始对callback list进行迭代执行，只有当callback list清空时才会设置为false
 var isHostCallbackScheduled = false;
 
+// 距离一帧结束还有多长时间
 function timeRemaining() {
-  // Fallback to Date.now()
   if (
     firstCallbackNode !== null &&
     firstCallbackNode.expirationTime < currentExpirationTime
@@ -55,13 +55,18 @@ function ensureHostCallbackIsScheduled() {
   if (isExecutingCallback) {
     return;
   }
+  // 若没有回调正在执行
   // 执行优先级最高的回调，若已经有正在执行的回调，则取消执行
   var expirationTime = firstCallbackNode.expirationTime;
   // TODO ?若已经有callback开始调度并执行，则取消执行该callback
-  // 否则设置为true，开始调度新的callback
+  // 若isHostCallbackScheduled为false，表示callbackNode list已经全部被执行完
+  // 此时callbackNodeList为空。
+  // 由于当前加入了一个newNode，所以callbackNodeList不再为空，可以开始对其进行遍历执行了
   if (!isHostCallbackScheduled) {
     isHostCallbackScheduled = true;
   } else {
+    // 若isHostCallbackScheduled为true，表示callbackNode list还有callback被调度执行。
+    // 由于加入了newNode，需要取消之前的调度信息，
     cancelHostCallback();
   }
   //执行callback
@@ -183,10 +188,8 @@ function flushWork(didTimeout) {
   try {
     if (didTimeout) { // 任务已经过期
       // 从firstCallbackNode向后一直执行，直到遇到第一个没过期的任务
+      // 也就是把callbackNode中所有已经过期的任务执行掉
       while (firstCallbackNode !== null) {
-        // Read the current time. Flush all the callbacks that expire at or
-        // earlier than that time. Then read the current time again and repeat.
-        // This optimizes for as few performance.now calls as possible.
         var currentTime = getCurrentTime();
         // 若链表第一个的callbackNode已经过期
         if (firstCallbackNode.expirationTime <= currentTime) {
@@ -201,18 +204,18 @@ function flushWork(didTimeout) {
         break;
       }
     } else {
-      // Keep flushing callbacks until we run out of time in the frame.
+      // 若任务没有过期，当帧还有剩余的时间，则继续去执行掉callbackNode list中给的callbackNode
       if (firstCallbackNode !== null) {
         do {
           flushFirstCallback();
         } while (
-          firstCallbackNode !== null &&
-          getFrameDeadline() - getCurrentTime() > 0
+          firstCallbackNode !== null && // callbackNode List中还有未处理的callbackNode
+          getFrameDeadline() - getCurrentTime() > 0 // 当前帧还有剩余时间
           );
       }
     }
   } finally {
-    isExecutingCallback = false;
+    isExecutingCallback = false;  // callbackNode执行结束，设置为false
     if (firstCallbackNode !== null) {
       // There's still work remaining. Request another callback.
       ensureHostCallbackIsScheduled();
@@ -273,8 +276,8 @@ function unstable_wrapCallback(callback) {
 // 对callback进行调度
 // 1.根据callback的不同优先级计算过期时间
 // 2.创建callbackNode
-// 3.若callbackNode list中没有node，则直接执行
-// 4.若callbackNode list中有node，则根据优先级找到newNode的插入点
+// 3.若callbackNode list中没有node，则将newNode放入callbackNode List中并直接调用
+// 4.若callbackNode list中有node，则根据优先级找到newNode的插入点插入其中，并从头开始调用
 function unstable_scheduleCallback(callback, deprecated_options) {
   var startTime =
     currentEventStartTime !== -1 ? currentEventStartTime : getCurrentTime();
@@ -351,15 +354,14 @@ function unstable_scheduleCallback(callback, deprecated_options) {
   return newNode;
 }
 
+// 取消callbackNode的调度，将其从callbackNode list 中移出
 function unstable_cancelCallback(callbackNode) {
   var next = callbackNode.next;
-  if (next === null) {
-    // Already cancelled.
+  if (next === null) { // 若next为null，表示这个node已经取消调度了
     return;
   }
 
-  if (next === callbackNode) {
-    // This is the only scheduled callback. Clear the list.
+  if (next === callbackNode) { // callbackNode list只有一个
     firstCallbackNode = null;
   } else {
     // Remove the callback from its position in the list.
@@ -468,7 +470,8 @@ var idleTick = function (event) {
   var currentTime = getCurrentTime();
 
   var didTimeout = false;
-  if (frameDeadline - currentTime <= 0) { // callback的执行时间已经超出了当前帧的结束时间
+  // 表示浏览器更新dom或者是处理用户返回的时间已经超过了activeFrameTime,也就是已经把这一帧的时间用完了
+  if (frameDeadline - currentTime <= 0) {
     if (prevTimeoutTime !== -1 && prevTimeoutTime <= currentTime) {// callback的过期时间已经到了
       didTimeout = true;
     } else {// callback的过期时间还没有到， 则重新对这个callback进行一次调度
@@ -526,21 +529,14 @@ var animationTick = function (rafTime) {
     if (nextFrameTime < 8) {
       nextFrameTime = 8;
     }
-    // If one frame goes long, then the next one can be short to catch up.
-    // If two frames are short in a row, then that's an indication that we
-    // actually have a higher frame rate than what we're currently optimizing.
-    // We adjust our heuristic dynamically accordingly. For example, if we're
-    // running on 120hz display or 90hz VR display.
-    // Take the max of the two in case one of them was an anomaly due to
-    // missed frame deadlines.
-
-    // 因为最近两次的帧时长都低于activeFreameTime，说明平台的帧率很高，需要动态的缩小帧时长
+      // 因为最近两次的帧时长都低于activeFreameTime，说明平台的帧率很高，需要动态的缩小帧时长
     activeFrameTime =
       nextFrameTime < previousFrameTime ? previousFrameTime : nextFrameTime;
   } else {  // 若最近两次的帧时长并不比activeFrameTime小，说明设置的activeFrameTime 33ms
     previousFrameTime = nextFrameTime;
   }
   frameDeadline = rafTime + activeFrameTime; // 获取下一帧的截止时间
+  // 若还未发送调用idleTick，则使用postMessage发送信息
   if (!isMessageEventScheduled) {
     isMessageEventScheduled = true;
     window.postMessage(messageKey, "*");
@@ -563,6 +559,7 @@ var requestHostCallback = function (callback, absoluteTimeout) {
   }
 };
 
+// 取消之前的调度，将相关信息重置
 var cancelHostCallback = function () {
   scheduledHostCallback = null;
   isMessageEventScheduled = false;
