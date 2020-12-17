@@ -47,26 +47,24 @@ var deadlineObject = {
 };
 
 // 执行callback
-// 1.查看是否已经有callback正在执行，若有则退出，不打断正在执行的callback
-// 2.查看是否已经开始调度，若已经开始回调，TODO ?则将数据恢复初始状态。否则设置为开始调度
-// 3.模拟requestIdleCallback，执行callback
+// 1.查看是否已经有正在执行，若有则退出，不打断正在执行的callback
+// 2.查看callbackNode List 中是否还有callbackNode，若有则停止调度
+// 3.模拟requestIdleCallback执行
 function ensureHostCallbackIsScheduled() {
-  // 若已经有回调正在执行，则退出，不能打断已经执行的回调
+  // 若已经有flushWork正在执行，则退出，不能打断已经执行的flushWork
   if (isExecutingCallback) {
     return;
   }
   // 若没有回调正在执行
   // 执行优先级最高的回调，若已经有正在执行的回调，则取消执行
   var expirationTime = firstCallbackNode.expirationTime;
-  // TODO ?若已经有callback开始调度并执行，则取消执行该callback
-  // 若isHostCallbackScheduled为false，表示callbackNode list已经全部被执行完
-  // 此时callbackNodeList为空。
+  // 若isHostCallbackScheduled为false，表示callbackNode list已经全部被执行完,此时callbackNodeList为空。
   // 由于当前加入了一个newNode，所以callbackNodeList不再为空，可以开始对其进行遍历执行了
   if (!isHostCallbackScheduled) {
     isHostCallbackScheduled = true;
   } else {
     // 若isHostCallbackScheduled为true，表示callbackNode list还有callback被调度执行。
-    // 由于加入了newNode，需要取消之前的调度信息，
+    // 由于加入了newNode，并且newNode的优先级高，所以需要取消之前的调度信息，重新开始执行
     cancelHostCallback();
   }
   //执行callback
@@ -204,7 +202,7 @@ function flushWork(didTimeout) {
         break;
       }
     } else {
-      // 若任务没有过期，当帧还有剩余的时间，则继续去执行掉callbackNode list中给的callbackNode
+      // 若任务没有过期，当帧还有剩余的时间，则继续去执行掉callbackNode list中的callbackNode
       if (firstCallbackNode !== null) {
         do {
           flushFirstCallback();
@@ -216,10 +214,9 @@ function flushWork(didTimeout) {
     }
   } finally {
     isExecutingCallback = false;  // callbackNode执行结束，设置为false
-    if (firstCallbackNode !== null) {
-      // There's still work remaining. Request another callback.
+    if (firstCallbackNode !== null) {// callbackNode list中还有callbackNode，则去开启requestAnimationFrame
       ensureHostCallbackIsScheduled();
-    } else {
+    } else {// callbackNode List中的callbackNode都已经执行完毕，链表为空
       isHostCallbackScheduled = false;
     }
     // Before exiting, flush all the immediate work that was scheduled.
@@ -345,6 +342,8 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     }
 
     // 将newNode插入到链表中
+    // 虽然先执行了ensureHostCallbackIsScheduled，但是因为完成任务后是放在执行栈中
+    // 所以必然是先执行以下的操作，等到主程序已经执行完才会从执行栈中取出来callback执行，所以不影响
     var previous = next.previous;
     previous.next = next.previous = newNode;
     newNode.next = next;
@@ -407,6 +406,7 @@ var getCurrentTime = function () {
 var ANIMATION_FRAME_TIMEOUT = 100; // 后台执行setTimeout时的超时时间
 var rAFID;  // requestAnimationFrame执行后返回的id，用于取消执行
 var rAFTimeoutID; // setTimeout执行后返回的id， 用于取消执行
+// 此处的callback为animationTick
 function requestAnimationFrameWithTimeout(callback) {
   rAFID = localRequestAnimationFrame(function (timestamp) {
     localClearTimeout(rAFTimeoutID);
@@ -418,24 +418,22 @@ function requestAnimationFrameWithTimeout(callback) {
   }, ANIMATION_FRAME_TIMEOUT);
 }
 
-// 已调度的callback
+// 已调度的flushWork
 var scheduledHostCallback = null;
 
 // 是否已经发送调用idleTick的消息，在animationTick中设置为true
 var isMessageEventScheduled = false;
+// 执行本次调度任务的超时时间
 var timeoutTime = -1;
 
 // 是否已经开始调用requestAnimationFrame
 var isAnimationFrameScheduled = false;
 
-// 是否正在执行callback
+// 是否正在执行flushWork
 var isFlushingHostCallback = false;
 
 // 记录当前帧的到期时间，他等于currentTime + activeFrameTime，也就是requestAnimationFrame回调传入的时间，加上一帧的时间。
 var frameDeadline = 0;
-// We start out assuming that we run at 30fps but then the heuristic tracking
-// will adjust this value to a faster fps if we get more frequent animation
-// frames.
 // 上一帧的时间
 var previousFrameTime = 33;
 
@@ -453,15 +451,20 @@ var messageKey =
       .toString(36)
       .slice(2);
 
+// 每次requestAnimationFrame执行后，每帧都会触发idleTick
+// 因为window.postMessage出发后的事件为微任务，会在本次主程序执行完毕后去执行微任务，也就相当于在主线程空闲时间执行微任务
+// 此时就相当于requestIdleCallback的空闲时间执行的功能
 var idleTick = function (event) {
   // 判断这个postMesssage是不是自己的，如果不是自己的， 就直接退出
   if (event.source !== window || event.data !== messageKey) {
     return;
   }
 
+  // 设置为false，这样在animationTick中才能触发window.postMessage，相当于开启了浏览器将下一个idleTick放入微任务队列的开关
   isMessageEventScheduled = false;
 
-  var prevScheduledCallback = scheduledHostCallback;
+  // 本次的callback：flushWork设置为上次，方便scheduledHostCallback记录新的flushWork
+  var prevScheduledCallback = scheduledHostCallback;  // flushWork
   var prevTimeoutTime = timeoutTime;
   // callback执行完毕，将当前执行的callback和对应的过期时间重置
   scheduledHostCallback = null;
@@ -470,26 +473,29 @@ var idleTick = function (event) {
   var currentTime = getCurrentTime();
 
   var didTimeout = false;
+  // 本次帧的截止时间超时了，
   // 表示浏览器更新dom或者是处理用户返回的时间已经超过了activeFrameTime,也就是已经把这一帧的时间用完了
   if (frameDeadline - currentTime <= 0) {
     if (prevTimeoutTime !== -1 && prevTimeoutTime <= currentTime) {// callback的过期时间已经到了
       didTimeout = true;
-    } else {// callback的过期时间还没有到， 则重新对这个callback进行一次调度
-      if (!isAnimationFrameScheduled) { // 若没有调用raf，则启动下一个raf
+    } else { // 由于callback还没有执行，帧的截止时间就到了，同时这个callback的截止时间还没有到，则需要将这个callback安排到另外的一帧去执行
+      // 由于此时可能callbackList中已经没有了callbackNode，但因为需要将未执行的callback放入执行栈，所以需要重新启动requestAnimationFrame
+      if (!isAnimationFrameScheduled) { // 启动requestAnimationFrame
         isAnimationFrameScheduled = true;
         requestAnimationFrameWithTimeout(animationTick);
       }
-      // Exit without invoking the callback.
+      // 将当前的callback设置为调度状态并退出
       scheduledHostCallback = prevScheduledCallback;
       timeoutTime = prevTimeoutTime;
       return;
     }
   }
 
+  // 若帧的截止时间还没有到，也就是当前帧已经有了空闲时间去执行任务，或者是截止时间到了而且任务已经超时，则需要立即执行任务。
   if (prevScheduledCallback !== null) {
     isFlushingHostCallback = true;
     try {
-      prevScheduledCallback(didTimeout);
+      prevScheduledCallback(didTimeout); // 执行任务，也就是执行flushWork
     } finally {
       isFlushingHostCallback = false;
     }
@@ -499,26 +505,27 @@ var idleTick = function (event) {
 // something better for old IE.
 window.addEventListener("message", idleTick, false);
 
-var animationTick = function (rafTime) {
+// requestAnimationFrame的参数，也是每一帧开始时执行的回调
+// rafTime为当前时间
+var  animationTick = function (rafTime) {
   if (scheduledHostCallback !== null) { // 若有正在调度的callback，则执行
-    // 急切地在帧的开始处安排下一个动画回调。
-    // 如果调度程序队列在帧末尾不为空，它将在该回调内继续刷新。
-    // 如果队列*为*空，则它将立即退出。
+    // 递归调用，这样每一帧才能去执行
     // 在帧的开始处发布回调可确保在尽可能早的帧内触发回调。
     // 如果我们等到帧结束后才发布回调，那么浏览器就有可能跳过一个帧而在该帧之后才触发回调
     requestAnimationFrameWithTimeout(animationTick);
   } else {
-    // 若没有已经调度的callback，则退出
+    // 若没有已经调度的callback，则关闭requestAnimationFrame
     isAnimationFrameScheduled = false;
     return;
   }
 
+  //以下代码为动态设置帧时长
   // rafTime - frameDeadline为计算当前时间和上一帧设置的截止时间
   // 若大于0，表示任务在截止时间之前完成了
   // 若小于0，表示任务延后了
-  // 加上activeFrameTime后，可以用于动态设置帧的时长
+  // 加上activeFrameTime后，就是下一帧的时长
   var nextFrameTime = rafTime - frameDeadline + activeFrameTime;
-  // 若当前的帧时长和上一帧的时长小于activeFrameTime
+  // 最近两次的帧时长均小于activeFrameTime
   // 说明帧时长很短，显示器的刷新频率很高，帧时长低于设置好的activeFrameTime，需要重新设置activeFrameTime
   if (
     nextFrameTime < activeFrameTime &&
@@ -529,10 +536,10 @@ var animationTick = function (rafTime) {
     if (nextFrameTime < 8) {
       nextFrameTime = 8;
     }
-      // 因为最近两次的帧时长都低于activeFreameTime，说明平台的帧率很高，需要动态的缩小帧时长
+    // activeFrameTime选择为最近两次帧最长的时长
     activeFrameTime =
       nextFrameTime < previousFrameTime ? previousFrameTime : nextFrameTime;
-  } else {  // 若最近两次的帧时长并不比activeFrameTime小，说明设置的activeFrameTime 33ms
+  } else { // 最近两次的帧时长均不小于activeFrameTime，则频率稳定，将本次帧时长赋给previousFrameTime
     previousFrameTime = nextFrameTime;
   }
   frameDeadline = rafTime + activeFrameTime; // 获取下一帧的截止时间
@@ -543,16 +550,18 @@ var animationTick = function (rafTime) {
   }
 };
 
-// 发起callback调度
+/**
+ * 发起callback调度
+ * @param callback 此处的callback为flushWork，需要被传入一个didTimeout的参数，用于标记是否已经过期
+ * @param absoluteTimeout 绝对时间
+ */
 var requestHostCallback = function (callback, absoluteTimeout) {
   scheduledHostCallback = callback;
   timeoutTime = absoluteTimeout;
-  if (isFlushingHostCallback || absoluteTimeout < 0) {
-    // Don't wait for the next frame. Continue working ASAP, in a new event.
+  if (isFlushingHostCallback || absoluteTimeout < 0) { // 若正在执行flushWork或者是当前的callbackNode已经过期，则立即callbackNode
     window.postMessage(messageKey, "*");
   } else if (!isAnimationFrameScheduled) {
     // 若requestAnimationFrame还没有被调用过，则需要进行调度
-    // 若浏览器没有实现requestAnimationFrame，则可以使用setTimeout触发requestIdleCallback来替代他
     isAnimationFrameScheduled = true;
     // 启动raf执行callback
     requestAnimationFrameWithTimeout(animationTick);
