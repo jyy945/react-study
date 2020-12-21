@@ -364,6 +364,7 @@ if (__DEV__ && replayFailedUnitOfWorkWithInvokeGuardedCallback) {
   };
 }
 
+// 若上次schedulRoot还未执行完毕，fiberRoot还未更新完毕，则回滚之前已更新的操作。并重置nextRoot等相关信息
 function resetStack() {
   // 若上一次的fiberRoot还没有更新完毕，其fiber树还存在未被遍历执行的fiber节点
   // 则将之前所有的执行更新过的fiber节点回复原始状态
@@ -1144,6 +1145,7 @@ function workLoop(isYieldy) {
   }
 }
 
+// 开始渲染root
 function renderRoot(
   root: FiberRoot,
   isYieldy: boolean,
@@ -1163,11 +1165,11 @@ function renderRoot(
   // previously yielded work.
   if (
     expirationTime !== nextRenderExpirationTime ||
-    root !== nextRoot ||
-    nextUnitOfWork === null
+    root !== nextRoot || // scheduleRoot list中有多个scheduleRoot
+    nextUnitOfWork === null     // scheduleRoot中下一个需要执行的fiber节点
   ) {
-    // Reset the stack and start working from the root.
     resetStack();
+    // 开始执行当前的scheduleRoot
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
     nextUnitOfWork = createWorkInProgress(
@@ -2154,6 +2156,7 @@ function performSyncWork() {
 // 执行任务
 // 首先会在scheduleRoot链表中查找优先级最高的任务，使用该任务对nextFlushedRoot和nextFlushedExpirationTime进行赋值；
 // 然后判断deadline是否存在，若不存在说明是要去执行同步任务。则遍历链表中所有的任务并执行
+// 若存在，说明是异步的，若未过期或已经到了截止时间，则执行。
 function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
   deadline = dl;
 
@@ -2176,7 +2179,7 @@ function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
       nextFlushedExpirationTime !== NoWork &&
       (minExpirationTime === NoWork ||
         minExpirationTime >= nextFlushedExpirationTime) &&
-      (!deadlineDidExpire || currentRendererTime >= nextFlushedExpirationTime)
+      (!deadlineDidExpire || currentRendererTime >= nextFlushedExpirationTime)// 未过期 或 已经到了截止时间
     ) {
       performWorkOnRoot(
         nextFlushedRoot,
@@ -2194,8 +2197,8 @@ function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
       (minExpirationTime === NoWork ||
         minExpirationTime >= nextFlushedExpirationTime)
     ) {
-      performWorkOnRoot(nextFlushedRoot, nextFlushedExpirationTime, true);
-      findHighestPriorityRoot();
+      performWorkOnRoot(nextFlushedRoot, nextFlushedExpirationTime, true);  // 执行并在root list中移除
+      findHighestPriorityRoot();  // 继续寻找下一个优先级最高的scheduleRoot 并对nextFlushedRoot和nextFlushedExpirationTime进行赋值
     }
   }
 
@@ -2207,7 +2210,7 @@ function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
     callbackExpirationTime = NoWork;
     callbackID = null;
   }
-  // If there's work left over, schedule a new callback.
+  // 若此时还有schduleRoot存在，则继续调用一个scheduleRoot
   if (nextFlushedExpirationTime !== NoWork) {
     scheduleCallbackWithExpirationTime(
       ((nextFlushedRoot: any): FiberRoot),
