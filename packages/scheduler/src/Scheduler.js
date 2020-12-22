@@ -46,16 +46,16 @@ var deadlineObject = {
   didTimeout: false  // 是否已经过期
 };
 
-// 执行callback
-// 1.查看是否已经有正在执行，若有则退出，不打断正在执行的callback
+// 开始调度callbackNode list中的第一个callbackNode
+// 1.查看是否已经有flushwork正在执行，若有则退出，
 // 2.查看callbackNode List 中是否还有callbackNode，若有则停止调度
 // 3.模拟requestIdleCallback执行
 function ensureHostCallbackIsScheduled() {
-  // 若已经有flushWork正在执行，则退出，不能打断已经执行的flushWork
+  // 若已经有flushWork正在执行，则退出，因为此时已经有idleTick从微任务队列中取出并执行，已经没有办法将其打断，所以只能等待其执行完毕。
+  // 然后会自动对callbackNode List中的任务进行调度。
   if (isExecutingCallback) {
     return;
   }
-  // 若没有回调正在执行
   // 执行优先级最高的回调，若已经有正在执行的回调，则取消执行
   var expirationTime = firstCallbackNode.expirationTime;
   // 若isHostCallbackScheduled为false，表示callbackNode list已经全部被执行完,此时callbackNodeList为空。
@@ -270,15 +270,14 @@ function unstable_wrapCallback(callback) {
   };
 }
 
-// 对callback进行调度
-// 1.根据callback的不同优先级计算过期时间
-// 2.创建callbackNode
-// 3.若callbackNode list中没有node，则将newNode放入callbackNode List中并直接调用
-// 4.若callbackNode list中有node，则根据优先级找到newNode的插入点插入其中，并从头开始调用
+// 对任务进行调度
+// 1.根据任务的不同优先级计算过期时间
+// 2.创建callbackNode并根据优先级将其插入到callbackNode list中（优先级从高到低）
+// 3.若当前任务对应的callbackNode为callbackNode list中的第一个，也就是其优先级是最高的话，
+// 则执行ensureHostCallbackIsScheduled，开始对这个任务进行调度；若不是list中的第一个，则不需操作，因为会自动执行list中的callbackNode
 function unstable_scheduleCallback(callback, deprecated_options) {
   var startTime =
     currentEventStartTime !== -1 ? currentEventStartTime : getCurrentTime();
-
   var expirationTime;
   if (
     typeof deprecated_options === "object" &&
@@ -304,7 +303,6 @@ function unstable_scheduleCallback(callback, deprecated_options) {
         expirationTime = startTime + NORMAL_PRIORITY_TIMEOUT;
     }
   }
-
   // 初始化node对象
   var newNode = {
     callback,
@@ -313,43 +311,38 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     next: null,
     previous: null
   };
-
-  if (firstCallbackNode === null) { // callbackNode链表为空，将当前的callbackNode放入到链表中，并立即执行
+  if (firstCallbackNode === null) { // callbackNode链表为空，将当前的callbackNode放入到链表中，并进行调度
     firstCallbackNode = newNode.next = newNode.previous = newNode;
     ensureHostCallbackIsScheduled();
   } else {
     var next = null;
     var node = firstCallbackNode;
-    // 找到node list中第一个优先级低于newNode的node
+    // 在list中找到第一个优先级低于newNode的callbackNode
     do {
       if (node.expirationTime > expirationTime) {
-        // The new callback expires before this one.
         next = node;
         break;
       }
       node = node.next;
     } while (node !== firstCallbackNode);
-
     if (next === null) {
       // 所有callbackNode的优先级都高于newNode
       // 则将newNode放入链表最后位置
       next = firstCallbackNode;
     } else if (next === firstCallbackNode) {
       // 若第一个的callbackNode的优先级低于newNode，说明newNode的优先级最高
-      // 则将newNode设置为链表第一个并立即执行
+      // 则将newNode设置为链表第一个并立即对其进行调度
       firstCallbackNode = newNode;
       ensureHostCallbackIsScheduled();
     }
-
     // 将newNode插入到链表中
-    // 虽然先执行了ensureHostCallbackIsScheduled，但是因为完成任务后是放在执行栈中
-    // 所以必然是先执行以下的操作，等到主程序已经执行完才会从执行栈中取出来callback执行，所以不影响
+    // 虽然先执行了ensureHostCallbackIsScheduled，但是因为任务会放在微任务队列中，在调入执行栈后，任务才能执行并删除
+    // 所以必然是先执行以下插入的操作，等到主程序已经执行完才会从微任务队列中执行任务，此时callbackNode已经完成插入操作
     var previous = next.previous;
     previous.next = next.previous = newNode;
     newNode.next = next;
     newNode.previous = previous;
   }
-
   return newNode;
 }
 
