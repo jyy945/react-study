@@ -1069,6 +1069,7 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   return null;
 }
 
+//
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   // The current, flushed, state of this fiber is the alternate.
   // Ideally nothing should rely on this, but relying on it here
@@ -1131,14 +1132,13 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   return next;
 }
 
+// 对fiber树中的所有fiber进行遍历执行
 function workLoop(isYieldy) {
-  if (!isYieldy) {
-    // Flush work without yielding
+  if (!isYieldy) {  // 若不可被打断，则一直执行直到结束
     while (nextUnitOfWork !== null) {
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
-  } else {
-    // Flush asynchronous work until the deadline runs out of time.
+  } else { // 若可以被打断，则根据任务的
     while (nextUnitOfWork !== null && !shouldYield()) {
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
@@ -2288,7 +2288,7 @@ function performWorkOnRoot(
       completeRoot(root, finishedWork, expirationTime);
     } else {// 当前的fiberRoot未完成
       root.finishedWork = null;
-      // 若当前的fiberRoot之前被挂起，那么就清理这个timeout，因为需要重新render
+      // 若当前的fiberRoot之前被取消执行，那么就清理这个timeout，因为需要重新render这个fiberRoot
       const timeoutHandle = root.timeoutHandle;
       if (timeoutHandle !== noTimeout) {
         root.timeoutHandle = noTimeout;
@@ -2296,6 +2296,7 @@ function performWorkOnRoot(
         cancelTimeout(timeoutHandle);
       }
       const isYieldy = false;
+      // 开始渲染fiber树
       renderRoot(root, isYieldy, isExpired);
       finishedWork = root.finishedWork;
       if (finishedWork !== null) {

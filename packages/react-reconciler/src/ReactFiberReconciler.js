@@ -106,6 +106,8 @@ function getContextForSubtree(
   return parentContext;
 }
 
+// 对fiberRoot的更新进行调度
+// 创建一个update，然后将update放入update queue中
 function scheduleRootUpdate(
   current: Fiber,
   element: ReactNodeList,
@@ -153,6 +155,7 @@ function scheduleRootUpdate(
   return expirationTime;
 }
 
+// 使用expirationTime更新fiber树
 export function updateContainerAtExpirationTime(
   element: ReactNodeList,
   container: OpaqueRoot, // fiberRoot
@@ -278,7 +281,7 @@ export function createContainer(
 }
 
 // 更新fiber树
-// 首先计算expiration time，然后根据expiration time更新
+// 计算expiration time，根据expiration time更新fiber树
 export function updateContainer(
   element: ReactNodeList,
   container: OpaqueRoot,  // fiberRoot

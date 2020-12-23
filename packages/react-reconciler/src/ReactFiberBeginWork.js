@@ -131,7 +131,7 @@ export function reconcileChildren(
   nextChildren: any,
   renderExpirationTime: ExpirationTime,
 ) {
-  if (current === null) {
+  if (current === null) { // 首次渲染
     // If this is a fresh new component that hasn't been rendered yet, we
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
@@ -394,6 +394,7 @@ function markRef(current: Fiber | null, workInProgress: Fiber) {
   }
 }
 
+// 更新function组件
 function updateFunctionComponent(
   current,
   workInProgress,
@@ -412,7 +413,7 @@ function updateFunctionComponent(
     nextChildren = Component(nextProps, context);
     ReactCurrentFiber.setCurrentPhase(null);
   } else {
-    nextChildren = Component(nextProps, context);
+    nextChildren = Component(nextProps, context); // 执行function组件，返回的为最新的子组件
   }
 
   // React DevTools reads this flag.
@@ -740,9 +741,10 @@ function updateHostText(current, workInProgress) {
   return null;
 }
 
+// 处理默认的props，若有DefaultProps则和props进行merge
 function resolveDefaultProps(Component, baseProps) {
+  // 若为react component组件并且有defaultProps，则对baseprops和defaultProps进行合并
   if (Component && Component.defaultProps) {
-    // Resolve default props. Taken from ReactElement
     const props = Object.assign({}, baseProps);
     const defaultProps = Component.defaultProps;
     for (let propName in defaultProps) {
@@ -1611,7 +1613,8 @@ function beginWork(
     }
     case FunctionComponent: {
       const Component = workInProgress.type;
-      const unresolvedProps = workInProgress.pendingProps;
+      const unresolvedProps = workInProgress.pendingProps;  // 旧的的props
+      // 处理后的旧的props
       const resolvedProps =
         workInProgress.elementType === Component
           ? unresolvedProps

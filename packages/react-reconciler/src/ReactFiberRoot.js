@@ -101,6 +101,9 @@ export type FiberRoot = {
 };
 
 // 创建fiberRoot对象
+// 内部创建一个rootFiber对象
+// fiberRoot.current = rootFiber;
+// rootFiber.stateNode = filberRoot;
 export function createFiberRoot(
   containerInfo: any,
   isConcurrent: boolean,

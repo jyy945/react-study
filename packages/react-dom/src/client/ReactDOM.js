@@ -333,6 +333,7 @@ ReactWork.prototype._onCommit = function(): void {
 };
 
 // reactRoot对象定义
+// 创建fiberRoot赋值给内部属性_internalRoot
 function ReactRoot(
   container: Container,
   isConcurrent: boolean,
@@ -341,6 +342,7 @@ function ReactRoot(
     const root = DOMRenderer.createContainer(container, isConcurrent, hydrate); // 创建fiberRoot
     this._internalRoot = root;  // 将fiberRoot赋值给_internalRoot
   }
+  // 渲染fiber树
   ReactRoot.prototype.render = function(
     children: ReactNodeList,
     callback: ?() => mixed,
@@ -467,7 +469,9 @@ ReactGenericBatching.setBatchingImplementation(
 
 let warnedAboutHydrateAPI = false;
 
-// 通过dom节点创建fiberRoot对象
+// 通过dom节点创建reactRoot对象
+// 删除container元素中的所有子元素
+// 返回创建的reactRoot对象
 function legacyCreateRootFromDOMContainer(
   container: DOMContainer,
   forceHydrate: boolean,
@@ -515,6 +519,9 @@ function legacyCreateRootFromDOMContainer(
   return new ReactRoot(container, isConcurrent, shouldHydrate); // 为react创建reactRoot
 }
 
+// 向container中创建添加渲染子树
+// 创建一个reactRoot赋值给container.legacy_reactRootContainer
+// 若为首次渲染，则执行reactRoot.render，否则执行fiberRoot._reactRootContainer
 function legacyRenderSubtreeIntoContainer(
   parentComponent: ?React$Component<any, any>,
   children: ReactNodeList,
