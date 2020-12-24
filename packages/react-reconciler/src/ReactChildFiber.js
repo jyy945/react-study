@@ -1237,8 +1237,8 @@ function ChildReconciler(shouldTrackSideEffects) {
       newChild !== null &&
       newChild.type === REACT_FRAGMENT_TYPE &&
       newChild.key === null;
-    if (isUnkeyedTopLevelFragment) {
-      newChild = newChild.props.children; // 将fragment组件直接赋值给当前节点的子组件，也就是将<></>删除
+    if (isUnkeyedTopLevelFragment) {// 若为fragment组件，则直接赋值给当前节点的子组件，也就是将<></>删除
+      newChild = newChild.props.children;
     }
 
     // Handle object types

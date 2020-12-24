@@ -242,7 +242,7 @@ export function findEarliestOutstandingPriorityLevel(
   return earliestExpirationTime;
 }
 
-// 任务已经超时，重新赋值过期时间
+// 任务已经超时,则设置nextExpirationTimeToWorkOn为当前时间
 export function didExpireAtExpirationTime(
   root: FiberRoot,
   currentTime: ExpirationTime,

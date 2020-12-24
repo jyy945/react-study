@@ -1145,7 +1145,7 @@ function workLoop(isYieldy) {
   }
 }
 
-// 开始渲染root
+// 进入渲染阶段，对整个fiber树进行渲染
 function renderRoot(
   root: FiberRoot,
   isYieldy: boolean,
@@ -1161,10 +1161,10 @@ function renderRoot(
 
   const expirationTime = root.nextExpirationTimeToWorkOn;
 
-  // Check if we're starting from a fresh stack, or if we're resuming from
-  // previously yielded work.
+  // 检查当前任务是新执行的任务，还是之前曾被挂起的任务
+  // 若为新执行的任务，则
   if (
-    expirationTime !== nextRenderExpirationTime ||
+    expirationTime !== nextRenderExpirationTime || // 若不相等表示当前的任务未曾挂起
     root !== nextRoot || // scheduleRoot list中有多个scheduleRoot
     nextUnitOfWork === null     // scheduleRoot中下一个需要执行的fiber节点
   ) {
@@ -2179,7 +2179,7 @@ function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
       nextFlushedExpirationTime !== NoWork &&
       (minExpirationTime === NoWork ||
         minExpirationTime >= nextFlushedExpirationTime) &&
-      (!deadlineDidExpire || currentRendererTime >= nextFlushedExpirationTime)// 未过期 或 已经到了截止时间
+      (!deadlineDidExpire || currentRendererTime >= nextFlushedExpirationTime)// 时间片还有时间还可以继续执行 或 已经到了截止时间必须执行
     ) {
       performWorkOnRoot(
         nextFlushedRoot,
@@ -2190,7 +2190,7 @@ function performWork(minExpirationTime: ExpirationTime, dl: Deadline | null) {
       recomputeCurrentRendererTime();
       currentSchedulerTime = currentRendererTime;
     }
-  } else {
+  } else { // 将所有同步任务执行掉
     while (
       nextFlushedRoot !== null &&
       nextFlushedExpirationTime !== NoWork &&
@@ -2269,6 +2269,14 @@ function finishRendering() {
   }
 }
 
+// 执行任务，此方法包括了render和commit阶段，会设置isRendering全局变量
+// 1.若任务为同步，则执行render和commit任务
+// 若任务为过期任务，需要查看任务之前是否已经执行了render任务，却因为时间片不够而挂起。若之前执行了render，则直接提交。
+// 否则和同步任务一样，直接执行render和commit任务
+// 2.若任务为异步任务但未过期，则查看是否之前已经挂起，是的话就执行commit
+// 否则就执行render任务。
+// 若执行完了render任务，时间片还有空余时间，则执行commit
+// 否则就将这个任务挂起，设置root.finishedWork，方便下次执行的时候直接进入commit阶段
 function performWorkOnRoot(
   root: FiberRoot,
   expirationTime: ExpirationTime,
@@ -2282,7 +2290,7 @@ function performWorkOnRoot(
 
   isRendering = true; // 设置为rendering状态，表示进入执行阶段
 
-  if (deadline === null || isExpired) { // 同步或者是已经过期的任务
+  if (deadline === null || isExpired) { // 同步或者是已经过期的任务，需要立即执行
     let finishedWork = root.finishedWork;
     if (finishedWork !== null) {  // 当前的fiberRoot已经render完成，直接提交
       completeRoot(root, finishedWork, expirationTime);
@@ -2295,6 +2303,7 @@ function performWorkOnRoot(
         // $FlowFixMe Complains noTimeout is not a TimeoutID, despite the check above
         cancelTimeout(timeoutHandle);
       }
+      // 设置任务不可以中断，此时不可中断，因为此时的任务为同步或已经过期的任务，都需要立即执行
       const isYieldy = false;
       // 开始渲染fiber树
       renderRoot(root, isYieldy, isExpired);
@@ -2305,10 +2314,8 @@ function performWorkOnRoot(
       }
     }
   } else {
-    // Flush async work.
     let finishedWork = root.finishedWork;
-    if (finishedWork !== null) {
-      // This root is already complete. We can commit it.
+    if (finishedWork !== null) {  // 当前的fiberRoot已经render完成，直接提交
       completeRoot(root, finishedWork, expirationTime);
     } else {
       root.finishedWork = null;
@@ -2320,18 +2327,18 @@ function performWorkOnRoot(
         // $FlowFixMe Complains noTimeout is not a TimeoutID, despite the check above
         cancelTimeout(timeoutHandle);
       }
-      const isYieldy = true;
+      const isYieldy = true;  // 为异步未过期的任务，可以中断
       renderRoot(root, isYieldy, isExpired);
       finishedWork = root.finishedWork;
-      if (finishedWork !== null) {
+      if (finishedWork !== null) { // 已经执行完毕
         // We've completed the root. Check the deadline one more time
         // before committing.
+        // 虽然render任务已经执行完毕，但是可以去查看当前时间片是否还有时间
+        // 如果还有时间，则将其进行提交
         if (!shouldYield()) {
-          // Still time left. Commit the root.
           completeRoot(root, finishedWork, expirationTime);
-        } else {
-          // There's no time left. Mark this root as complete. We'll come
-          // back and commit it later.
+        } else {  // 若任务执行后，当前时间片已经没有时间，则不执行commit任务
+          // 记录finishedWork,方便下次执行任务的之后直接跳过render阶段进行commit
           root.finishedWork = finishedWork;
         }
       }
