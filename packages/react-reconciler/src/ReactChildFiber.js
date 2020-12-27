@@ -238,16 +238,14 @@ function warnOnFunctionType() {
 // live outside of this function.
 // 对子组件进行调和
 function ChildReconciler(shouldTrackSideEffects) {
+  // 将子节点的删除动作记录在父节点的effectList中
   function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
+    // 若为初始化，则什么都不做
     if (!shouldTrackSideEffects) {
-      // Noop.
       return;
     }
-    // Deletions are added in reversed order so we add it to the front.
-    // At this point, the return fiber's effect list is empty except for
-    // deletions, so we can just append the deletion to the list. The remaining
-    // effects aren't added until the complete phase. Once we implement
-    // resuming, this may not be true.
+    // 对当前的fiber上的effect list执行插入操作，将需要删除的子节点的fiber插入其中。
+    // 用于记录需要操作的子节点，并设置子节点的effectTag为Deletion
     const last = returnFiber.lastEffect;
     if (last !== null) {
       last.nextEffect = childToDelete;
@@ -263,8 +261,8 @@ function ChildReconciler(shouldTrackSideEffects) {
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
   ): null {
+    // 若为初始化，则什么都不做
     if (!shouldTrackSideEffects) {
-      // Noop.
       return null;
     }
 
@@ -1106,23 +1104,27 @@ function ChildReconciler(shouldTrackSideEffects) {
     return created;
   }
 
+  // 对类型为Element的单个节点进行调和
   function reconcileSingleElement(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    element: ReactElement,
+    returnFiber: Fiber, // 当前的wip
+    currentFirstChild: Fiber | null,  // 当前的子fiber
+    element: ReactElement,  // 子
     expirationTime: ExpirationTime,
   ): Fiber {
     const key = element.key;
     let child = currentFirstChild;
+    // 若当前节点的子节点进行遍历，依次对比其key
+    // 若前后的子节点的key不相同，则标记删除该子节点
     while (child !== null) {
       // TODO: If key === null and child.key === null, then this only applies to
       // the first item in the list.
       if (child.key === key) {
+        // 即便key相同，也还要比较子节点的节点类型是否相同
         if (
           child.tag === Fragment
             ? element.type === REACT_FRAGMENT_TYPE
             : child.elementType === element.type
-        ) {
+        ) { // 当前的字节点的类型是相同的，说明这个子节点
           deleteRemainingChildren(returnFiber, child.sibling);
           const existing = useFiber(
             child,
@@ -1142,7 +1144,7 @@ function ChildReconciler(shouldTrackSideEffects) {
           deleteRemainingChildren(returnFiber, child);
           break;
         }
-      } else {
+      } else { // 若子节点的key不相同，则标记删除该子节点
         deleteChild(returnFiber, child);
       }
       child = child.sibling;
@@ -1216,22 +1218,14 @@ function ChildReconciler(shouldTrackSideEffects) {
   // This API will tag the children with the side-effect of the reconciliation
   // itself. They will be added to the side-effect list as we pass through the
   // children and the parent.
-  // 调和子fiber节点
+  // 调和子节点
   function reconcileChildFibers(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    newChild: any,
+    returnFiber: Fiber, // 当前的wip
+    currentFirstChild: Fiber | null, // 当前的子fiber
+    newChild: any,  // 子节点
     expirationTime: ExpirationTime,
   ): Fiber | null {
-    // This function is not recursive.
-    // If the top level item is an array, we treat it as a set of children,
-    // not as a fragment. Nested arrays on the other hand will be treated as
-    // fragment nodes. Recursion happens at the normal flow.
-
-    // Handle top level unkeyed fragments as if they were arrays.
-    // This leads to an ambiguity between <>{[...]}</> and <>...</>.
-    // We treat the ambiguous cases above the same.
-    // 当前组件的子组件为fragment组件，也就是<>...</>
+    // 查看当前组件的子节点是否为fragment组件
     const isUnkeyedTopLevelFragment =
       typeof newChild === 'object' &&
       newChild !== null &&
@@ -1241,9 +1235,9 @@ function ChildReconciler(shouldTrackSideEffects) {
       newChild = newChild.props.children;
     }
 
-    // Handle object types
     const isObject = typeof newChild === 'object' && newChild !== null;
 
+    // 子节点为React.createElement
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:
@@ -1267,6 +1261,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
+    // 子节点为文本
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(
@@ -1278,6 +1273,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       );
     }
 
+    // 子节点为数组
     if (isArray(newChild)) {
       return reconcileChildrenArray(
         returnFiber,
@@ -1345,6 +1341,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 export const reconcileChildFibers = ChildReconciler(true);
 export const mountChildFibers = ChildReconciler(false);
 
+// 克隆子节点
 export function cloneChildFibers(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -1359,6 +1356,9 @@ export function cloneChildFibers(
   }
 
   let currentChild = workInProgress.child;
+  // 因为当前节点的wip创建时，wip.child = fiber.child
+  // 所以当前的wip的子节点不是wip对象而是fiber对象
+  // 若需要对子节点进行更新需要对子节点的wip进行更新，所以需要重新对wip.child进行赋值
   let newChild = createWorkInProgress(
     currentChild,
     currentChild.pendingProps,
@@ -1367,6 +1367,7 @@ export function cloneChildFibers(
   workInProgress.child = newChild;
 
   newChild.return = workInProgress;
+  // 对当前的wip节点的所有的子节点依次创建对应的wip对象
   while (currentChild.sibling !== null) {
     currentChild = currentChild.sibling;
     newChild = newChild.sibling = createWorkInProgress(

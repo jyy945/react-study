@@ -1069,12 +1069,9 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   return null;
 }
 
-//
+// 处理单个fiber节点
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
-  // The current, flushed, state of this fiber is the alternate.
-  // Ideally nothing should rely on this, but relying on it here
-  // means that we don't need an additional field on the work in
-  // progress.
+  // 获取wip对应的filber对象
   const current = workInProgress.alternate;
 
   // See if beginning this work spawns more work.
@@ -1104,6 +1101,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
       stopProfilerTimerIfRunningAndRecordDelta(workInProgress, true);
     }
   } else {
+    // 开始更新
     next = beginWork(current, workInProgress, nextRenderExpirationTime);
     workInProgress.memoizedProps = workInProgress.pendingProps;
   }
@@ -1133,6 +1131,8 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 }
 
 // 对fiber树中的所有fiber进行遍历执行
+// 若为不可打断的任务，则对fiber树一直遍历，直到完全执行
+// 若为可打断的任务，则在时间片的时间范围内对fiber树进行遍历执行，直到时间截至。
 function workLoop(isYieldy) {
   if (!isYieldy) {  // 若不可被打断，则一直执行直到结束
     while (nextUnitOfWork !== null) {
@@ -1161,8 +1161,7 @@ function renderRoot(
 
   const expirationTime = root.nextExpirationTimeToWorkOn;
 
-  // 检查当前任务是新执行的任务，还是之前曾被挂起的任务
-  // 若为新执行的任务，则
+  // 当前执行的任务和之前需要下一个执行的不一致，表示为高优先级的任务打断了低优先级的任务
   if (
     expirationTime !== nextRenderExpirationTime || // 若不相等表示当前的任务未曾挂起
     root !== nextRoot || // scheduleRoot list中有多个scheduleRoot
@@ -1172,6 +1171,7 @@ function renderRoot(
     // 开始执行当前的scheduleRoot
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
+    // 创建workInProgress对象并设置为nextUnitOfWork
     nextUnitOfWork = createWorkInProgress(
       nextRoot.current,
       null,
@@ -1238,7 +1238,8 @@ function renderRoot(
   do {
     try {
       workLoop(isYieldy);
-    } catch (thrownValue) {
+    }
+    catch (thrownValue) {
       if (nextUnitOfWork === null) {
         // This is a fatal error.
         didFatal = true;

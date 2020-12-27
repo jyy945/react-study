@@ -131,7 +131,8 @@ export function reconcileChildren(
   nextChildren: any,
   renderExpirationTime: ExpirationTime,
 ) {
-  if (current === null) { // 首次渲染
+  // 因为父组件早于子组件创建，若current为null，表示组件为第一次渲染，还未创建fiber对象
+  if (current === null) {
     // If this is a fresh new component that hasn't been rendered yet, we
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
@@ -142,13 +143,7 @@ export function reconcileChildren(
       nextChildren,
       renderExpirationTime,
     );
-  } else {
-    // If the current child is the same as the work in progress, it means that
-    // we haven't yet started any work on these children. Therefore, we use
-    // the clone algorithm to create a copy of all the current children.
-
-    // If we had any progressed work already, that is invalid at this point so
-    // let's throw it out.
+  } else { // 此时表示当前的节点current不为null，所以并不是第一次更新，
     workInProgress.child = reconcileChildFibers(
       workInProgress,
       current.child,
@@ -418,6 +413,7 @@ function updateFunctionComponent(
 
   // React DevTools reads this flag.
   workInProgress.effectTag |= PerformedWork;
+  // 开始调和子节点
   reconcileChildren(
     current,
     workInProgress,
@@ -1453,6 +1449,9 @@ function updateContextConsumer(
   }
   */
 
+// 跳过子节点的更新
+// 若子孙节点当中没有更新或者优先级不高，则直接返回null，表示不需要更新
+// 若子孙节点中有需要更新的，则为所有子节点创建对应的wip对象并返回第一个子节点的wip对象
 function bailoutOnAlreadyFinishedWork(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -1470,24 +1469,24 @@ function bailoutOnAlreadyFinishedWork(
     stopProfilerTimerIfRunning(workInProgress);
   }
 
-  // Check if the children have any pending work.
+  // 查看子节点中是否有被挂起的任务。
   const childExpirationTime = workInProgress.childExpirationTime;
+  // 若childExpirationTime为NoWork或者优先级别不高，表示子节点中当前不需要更新，直接跳过
   if (
     childExpirationTime === NoWork ||
     childExpirationTime > renderExpirationTime
   ) {
-    // The children don't have any work either. We can skip them.
-    // TODO: Once we add back resuming, we should check if the children are
-    // a work-in-progress set. If so, we need to transfer their effects.
     return null;
-  } else {
-    // This fiber doesn't have work, but its subtree does. Clone the child
-    // fibers and continue.
+  } else {  // 当前的节点没有更新任务，但是子节点中有被挂起的任务，其优先级很高，则需要更新。
+    // 因为当前节点的wip创建时，wip.child = fiber.child，
+    // 所以当前的wip的子节点不是wip对象而是fiber对象
+    // 若需要对子节点进行更新需要对子节点的wip进行更新，则需要重新对wip.child进行赋值并对所有的子节点创建对应的wip对象
     cloneChildFibers(current, workInProgress);
     return workInProgress.child;
   }
 }
 
+// 开始
 function beginWork(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -1495,18 +1494,18 @@ function beginWork(
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
+  // 只有第一次渲染的第一个节点是有current值
   if (current !== null) {
-    const oldProps = current.memoizedProps;
-    const newProps = workInProgress.pendingProps;
+    const oldProps = current.memoizedProps; // 上一次的props值
+    const newProps = workInProgress.pendingProps; // 本次更新的最新的props值
+    // 若两次的props相同，或者是没有更新或有更新但是优先级别不高，
+    // 则本次不需要更新，直接执行bailoutOnAlreadyFinishedWork跳过
     if (
-      oldProps === newProps &&
+      oldProps === newProps && // 两次的props值是相同的
       !hasLegacyContextChanged() &&
-      (updateExpirationTime === NoWork ||
-        updateExpirationTime > renderExpirationTime)
+      (updateExpirationTime === NoWork || // 没有更新
+        updateExpirationTime > renderExpirationTime)  // 有更新，但是优先级不高。renderExpirationTime为当前对应的fiberRoot的expirationTime
     ) {
-      // This fiber does not have any pending work. Bailout without entering
-      // the begin phase. There's still some bookkeeping we that needs to be done
-      // in this optimized path, mostly pushing stuff onto the stack.
       switch (workInProgress.tag) {
         case HostRoot:
           pushHostRootContext(workInProgress);
@@ -1591,8 +1590,9 @@ function beginWork(
   // Before entering the begin phase, clear the expiration time.
   workInProgress.expirationTime = NoWork;
 
+  // 针对当前节点的不同类型执行不同的更新操作
   switch (workInProgress.tag) {
-    case IndeterminateComponent: {
+    case IndeterminateComponent: { //不确定是function还是class组件
       const elementType = workInProgress.elementType;
       return mountIndeterminateComponent(
         current,
