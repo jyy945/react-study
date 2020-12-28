@@ -125,18 +125,17 @@ if (__DEV__) {
   didWarnAboutFunctionRefs = {};
 }
 
+// 调和子节点
+// 若当前父组件为第一次渲染，则执行mountChildFibers
+// 若不为第一次渲染，则执行reconcileChildFibers
 export function reconcileChildren(
-  current: Fiber | null,
-  workInProgress: Fiber,
-  nextChildren: any,
+  current: Fiber | null, // 当前节点的fiber
+  workInProgress: Fiber,  // 当前节点的wip
+  nextChildren: any,  // 当前节点的子节点
   renderExpirationTime: ExpirationTime,
 ) {
   // 因为父组件早于子组件创建，若current为null，表示组件为第一次渲染，还未创建fiber对象
   if (current === null) {
-    // If this is a fresh new component that hasn't been rendered yet, we
-    // won't update its child set by applying minimal side-effects. Instead,
-    // we will add them all to the child before it gets rendered. That means
-    // we can optimize this reconciliation pass by not tracking side-effects.
     workInProgress.child = mountChildFibers(
       workInProgress,
       null,
@@ -390,6 +389,7 @@ function markRef(current: Fiber | null, workInProgress: Fiber) {
 }
 
 // 更新function组件
+// 调和子节点，然后返回当前节点的第一个子节点的wip对象
 function updateFunctionComponent(
   current,
   workInProgress,
@@ -423,6 +423,7 @@ function updateFunctionComponent(
   return workInProgress.child;
 }
 
+// 更新function类型组件
 function updateClassComponent(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -1486,10 +1487,13 @@ function bailoutOnAlreadyFinishedWork(
   }
 }
 
-// 开始
+// 开始执行渲染任务
+// 若两次的props相同，或者是没有更新或有更新但是优先级别不高，
+// 则本次不需要更新，直接执行bailoutOnAlreadyFinishedWork跳过
+// 若当前不是第一个节点或不是第一次渲染，则根据当前节点的类型执行更新方法
 function beginWork(
-  current: Fiber | null,
-  workInProgress: Fiber,
+  current: Fiber | null,  // 节点的fiber对象
+  workInProgress: Fiber,  // 节点的wip对象
   renderExpirationTime: ExpirationTime,
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;

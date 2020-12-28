@@ -1171,7 +1171,7 @@ function renderRoot(
     // 开始执行当前的scheduleRoot
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
-    // 创建workInProgress对象并设置为nextUnitOfWork
+    // 为rootFiber创建workInProgress对象并设置为nextUnitOfWork
     nextUnitOfWork = createWorkInProgress(
       nextRoot.current,
       null,

@@ -257,6 +257,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     childToDelete.effectTag = Deletion;
   }
 
+  // 标记删除自currentFirstChild开始的子节点
   function deleteRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -266,8 +267,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       return null;
     }
 
-    // TODO: For the shouldClone case, this could be micro-optimized a bit by
-    // assuming that after the first child we've already added everything.
+    // 遍历标记删除包括currentFirstChild在内的所有的兄弟节点
     let childToDelete = currentFirstChild;
     while (childToDelete !== null) {
       deleteChild(returnFiber, childToDelete);
@@ -297,13 +297,13 @@ function ChildReconciler(shouldTrackSideEffects) {
     return existingChildren;
   }
 
+  // 创建或更新wip
   function useFiber(
     fiber: Fiber,
     pendingProps: mixed,
     expirationTime: ExpirationTime,
   ): Fiber {
-    // We currently set sibling to null and index to 0 here because it is easy
-    // to forget to do before returning it. E.g. for the single child case.
+    // 创建或者更新当前节点fiber对应的wip信息
     const clone = createWorkInProgress(fiber, pendingProps, expirationTime);
     clone.index = 0;
     clone.sibling = null;
@@ -1076,20 +1076,20 @@ function ChildReconciler(shouldTrackSideEffects) {
     return resultingFirstChild;
   }
 
+  // 调和文本节点
   function reconcileSingleTextNode(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    textContent: string,
+    returnFiber: Fiber, // 当前的wip
+    currentFirstChild: Fiber | null,  // 当前节点的第一个子fiber
+    textContent: string,  // 子节点文本
     expirationTime: ExpirationTime,
   ): Fiber {
-    // There's no need to check for keys on text nodes since we don't have a
-    // way to define them.
+    // 若第一个子节点为文本节点，则移除其他的兄弟节点
     if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
-      // We already have an existing node so let's just update it and delete
-      // the rest.
+      // 标记删除文本子节点的所有兄弟节点
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+      // 创建或更新wip
       const existing = useFiber(currentFirstChild, textContent, expirationTime);
-      existing.return = returnFiber;
+      existing.return = returnFiber; // 将文本子节点的放入wip树
       return existing;
     }
     // The existing first child is not a text node so we need to create one
@@ -1108,7 +1108,7 @@ function ChildReconciler(shouldTrackSideEffects) {
   function reconcileSingleElement(
     returnFiber: Fiber, // 当前的wip
     currentFirstChild: Fiber | null,  // 当前的子fiber
-    element: ReactElement,  // 子
+    element: ReactElement,  // 子节点
     expirationTime: ExpirationTime,
   ): Fiber {
     const key = element.key;
@@ -1221,7 +1221,7 @@ function ChildReconciler(shouldTrackSideEffects) {
   // 调和子节点
   function reconcileChildFibers(
     returnFiber: Fiber, // 当前的wip
-    currentFirstChild: Fiber | null, // 当前的子fiber
+    currentFirstChild: Fiber | null, // 当前节点的第一个子fiber
     newChild: any,  // 子节点
     expirationTime: ExpirationTime,
   ): Fiber | null {
@@ -1237,7 +1237,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     const isObject = typeof newChild === 'object' && newChild !== null;
 
-    // 子节点为React.createElement
+    // 子节点为ReactElement
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:
@@ -1267,7 +1267,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         reconcileSingleTextNode(
           returnFiber,
           currentFirstChild,
-          '' + newChild,
+          '' + newChild,  // 转为字符串
           expirationTime,
         ),
       );
