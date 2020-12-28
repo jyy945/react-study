@@ -347,12 +347,14 @@ function ChildReconciler(shouldTrackSideEffects) {
     return newFiber;
   }
 
+  // 更新文本节点
   function updateTextNode(
     returnFiber: Fiber,
     current: Fiber | null,
     textContent: string,
     expirationTime: ExpirationTime,
   ) {
+    // 若当前的第一个子节点为空，或者节点类型不为文本节点，则创建并插入；否则更新这个节点
     if (current === null || current.tag !== HostText) {
       // Insert
       const created = createFiberFromText(
@@ -522,10 +524,9 @@ function ChildReconciler(shouldTrackSideEffects) {
     newChild: any,
     expirationTime: ExpirationTime,
   ): Fiber | null {
-    // Update the fiber if the keys match, otherwise return null.
+    const key = oldFiber !== null ? oldFiber.key : null; // 第一个旧子节点的key
 
-    const key = oldFiber !== null ? oldFiber.key : null;
-
+    // 若为文本节点则创建或更新文本节点
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       // Text nodes don't have keys. If the previous node is implicitly keyed
       // we can continue to replace it without aborting even if it is not a text
@@ -728,31 +729,13 @@ function ChildReconciler(shouldTrackSideEffects) {
     return knownKeys;
   }
 
+  // 对子节点为数组的节点调和
   function reconcileChildrenArray(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
     newChildren: Array<*>,
     expirationTime: ExpirationTime,
   ): Fiber | null {
-    // This algorithm can't optimize by searching from boths ends since we
-    // don't have backpointers on fibers. I'm trying to see how far we can get
-    // with that model. If it ends up not being worth the tradeoffs, we can
-    // add it later.
-
-    // Even with a two ended optimization, we'd want to optimize for the case
-    // where there are few changes and brute force the comparison instead of
-    // going for the Map. It'd like to explore hitting that path first in
-    // forward-only mode and only go for the Map once we notice that we need
-    // lots of look ahead. This doesn't handle reversal as well as two ended
-    // search but that's unusual. Besides, for the two ended optimization to
-    // work on Iterables, we'd need to copy the whole set.
-
-    // In this first iteration, we'll just live with hitting the bad case
-    // (adding everything to a Map) in for every insert/move.
-
-    // If you change this code, also update reconcileChildrenIterator() which
-    // uses the same algorithm.
-
     if (__DEV__) {
       // First, validate keys.
       let knownKeys = null;
@@ -769,6 +752,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     let lastPlacedIndex = 0;
     let newIdx = 0;
     let nextOldFiber = null;
+    // 对新子节点进行遍历，查找可复用的节点
     for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
       if (oldFiber.index > newIdx) {
         nextOldFiber = oldFiber;
@@ -1083,7 +1067,8 @@ function ChildReconciler(shouldTrackSideEffects) {
     textContent: string,  // 子节点文本
     expirationTime: ExpirationTime,
   ): Fiber {
-    // 若第一个子节点为文本节点，则移除其他的兄弟节点
+    // 若之前的子节点中第一个子节点为文本节点，则移除其他的兄弟节点
+    // 同时保留这个文本节点只更新其内部props
     if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
       // 标记删除文本子节点的所有兄弟节点
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
@@ -1092,8 +1077,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       existing.return = returnFiber; // 将文本子节点的放入wip树
       return existing;
     }
-    // The existing first child is not a text node so we need to create one
-    // and delete the existing ones.
+    // 之前的子元素中的第一个子节点不是文本元素，需要将之前的子元素全部删除，然后创建文本节点
     deleteRemainingChildren(returnFiber, currentFirstChild);
     const created = createFiberFromText(
       textContent,
@@ -1113,19 +1097,18 @@ function ChildReconciler(shouldTrackSideEffects) {
   ): Fiber {
     const key = element.key;
     let child = currentFirstChild;
-    // 若当前节点的子节点进行遍历，依次对比其key
-    // 若前后的子节点的key不相同，则标记删除该子节点
+    // 对当前节点的所有字节点进行遍历，一次对比key，查找之前的子节点中是否有可复用的节点
     while (child !== null) {
-      // TODO: If key === null and child.key === null, then this only applies to
-      // the first item in the list.
+      // 若key相同，则表示之前的子节点中有可复用的节点
       if (child.key === key) {
         // 即便key相同，也还要比较子节点的节点类型是否相同
         if (
           child.tag === Fragment
             ? element.type === REACT_FRAGMENT_TYPE
             : child.elementType === element.type
-        ) { // 当前的字节点的类型是相同的，说明这个子节点
-          deleteRemainingChildren(returnFiber, child.sibling);
+        ) { // 当前的字节点的类型是相同的，说明之前的子节点中有节点可以复用
+          deleteRemainingChildren(returnFiber, child.sibling);  // 将其他的子节点标记删除
+          // 对可复用的节点信息更新
           const existing = useFiber(
             child,
             element.type === REACT_FRAGMENT_TYPE
@@ -1140,7 +1123,7 @@ function ChildReconciler(shouldTrackSideEffects) {
             existing._debugOwner = element._owner;
           }
           return existing;
-        } else {
+        } else {  // 若节点的类型不同，说明当前的子节点不能复用，直接将之前所有的子节点标记删除
           deleteRemainingChildren(returnFiber, child);
           break;
         }
@@ -1150,6 +1133,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       child = child.sibling;
     }
 
+    // 针对节点不同的类型，创建对应的fiber对象
     if (element.type === REACT_FRAGMENT_TYPE) {
       const created = createFiberFromFragment(
         element.props.children,
@@ -1215,9 +1199,6 @@ function ChildReconciler(shouldTrackSideEffects) {
     return created;
   }
 
-  // This API will tag the children with the side-effect of the reconciliation
-  // itself. They will be added to the side-effect list as we pass through the
-  // children and the parent.
   // 调和子节点
   function reconcileChildFibers(
     returnFiber: Fiber, // 当前的wip
@@ -1237,7 +1218,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     const isObject = typeof newChild === 'object' && newChild !== null;
 
-    // 子节点为ReactElement
+    // 子节点只有一个节点且为ReactElement节点
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:
@@ -1261,7 +1242,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    // 子节点为文本
+    // 子节点只有一个节点且为文本节点
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(

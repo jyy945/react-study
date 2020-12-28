@@ -603,6 +603,8 @@ export function createFiberFromSuspense(
   return fiber;
 }
 
+
+// 创建文本fiber节点
 export function createFiberFromText(
   content: string,
   mode: TypeOfMode,
