@@ -276,15 +276,12 @@ function ChildReconciler(shouldTrackSideEffects) {
     return null;
   }
 
+  // 为计算后的子节点创建哈希表，键名为key或index，键值为对应的子节点
   function mapRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber,
   ): Map<string | number, Fiber> {
-    // Add the remaining children to a temporary map so that we can find them by
-    // keys quickly. Implicit (null) keys get added to this set with their index
-    // instead.
     const existingChildren: Map<string | number, Fiber> = new Map();
-
     let existingChild = currentFirstChild;
     while (existingChild !== null) {
       if (existingChild.key !== null) {
@@ -311,13 +308,14 @@ function ChildReconciler(shouldTrackSideEffects) {
   }
 
   // 设置新的节点插入或移动的位置
+  // 设置新子节点的index
   function placeChild(
     newFiber: Fiber,
     lastPlacedIndex: number,
     newIndex: number,
   ): number {
     newFiber.index = newIndex;
-    if (!shouldTrackSideEffects) { // 为第一次渲染，直接返回lastPlacedIndex
+    if (!shouldTrackSideEffects) { // 为第一次渲染，旧节点为空，所以直接返回lastPlacedIndex
       return lastPlacedIndex;
     }
     const current = newFiber.alternate;
@@ -329,7 +327,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       } else {  // 节点可以放在现在的位置上
         return oldIndex;
       }
-    } else { // 新节点没有被渲染过，则需要标记插入
+    } else { // 新节点没有被渲染过，为新建的wip，需要标记插入
       newFiber.effectTag = Placement;
       return lastPlacedIndex;
     }
@@ -745,8 +743,8 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    let resultingFirstChild: Fiber | null = null;
-    let previousNewFiber: Fiber | null = null;
+    let resultingFirstChild: Fiber | null = null; // 计算后的子节点链表的首节点
+    let previousNewFiber: Fiber | null = null; // 计算后的子节点链表中，当前的子节点
 
     let oldFiber = currentFirstChild;
     let lastPlacedIndex = 0;
@@ -802,15 +800,15 @@ function ChildReconciler(shouldTrackSideEffects) {
       previousNewFiber = newFiber;
       oldFiber = nextOldFiber;
     }
-    // 已经遍历了所有的原子节点，新节点都已经创建完成。则需要标记删除剩余不需要的老节点
+    // 已经遍历了所有的新子节点，新节点都已经创建完成。则需要标记删除剩余不需要的老节点
     if (newIdx === newChildren.length) {
       deleteRemainingChildren(returnFiber, oldFiber);
       return resultingFirstChild;
     }
 
+    // 老的节点已经复用完，但新的节点还有一部分没有创建
+    // 直接对剩余的新节点执行创建操作
     if (oldFiber === null) {
-      // 老的节点已经复用完，但新的节点还有一部分没有创建
-      // 则直接对剩余的新节点执行创建操作
       for (; newIdx < newChildren.length; newIdx++) {
         const newFiber = createChild(
           returnFiber,
@@ -821,8 +819,7 @@ function ChildReconciler(shouldTrackSideEffects) {
           continue;
         }
         lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
-        if (previousNewFiber === null) {
-          // TODO: Move out of the loop. This only happens for the first run.
+        if (previousNewFiber === null) { // 只在第一次循环的时候发生，创建计算后的节点链表
           resultingFirstChild = newFiber;
         } else {
           previousNewFiber.sibling = newFiber;
@@ -832,7 +829,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       return resultingFirstChild;
     }
 
-    // Add all children to a key map for quick lookups.
+    // 将所有的子节点放入一个哈希表中，便于查找
     const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
 
     // Keep scanning and use the map to restore deleted items as moves.
@@ -866,7 +863,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    if (shouldTrackSideEffects) {
+    if (shouldTrackSideEffects) { // 不是第一次更新
       // Any existing children that weren't consumed above were deleted. We need
       // to add them to the deletion list.
       existingChildren.forEach(child => deleteChild(returnFiber, child));

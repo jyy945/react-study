@@ -610,6 +610,7 @@ export function createFiberFromText(
   mode: TypeOfMode,
   expirationTime: ExpirationTime,
 ): Fiber {
+  // 文本节点的key为null
   const fiber = createFiber(HostText, content, null, mode);
   fiber.expirationTime = expirationTime;
   return fiber;

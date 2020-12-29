@@ -1320,6 +1320,7 @@ function renderRoot(
     return;
   }
 
+  // 若nextUnitOfWork不为空，表示在更新的过程中，该任务被挂起
   if (nextUnitOfWork !== null) {
     // There's still remaining async work in this tree, but we ran out of time
     // in the current frame. Yield back to the renderer. Unless we're
