@@ -276,7 +276,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     return null;
   }
 
-  // 为计算后的子节点创建哈希表，键名为key或index，键值为对应的子节点
+  // 将当前的旧节点及其之后的旧节点放入哈希表中
   function mapRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber,
@@ -321,13 +321,13 @@ function ChildReconciler(shouldTrackSideEffects) {
     const current = newFiber.alternate;
     if (current !== null) { // 已经复用了老节点
       const oldIndex = current.index;
-      if (oldIndex < lastPlacedIndex) { // index小于lastPlacedIndex，需要进行移动
+      if (oldIndex < lastPlacedIndex) { // index小于lastPlacedIndex，说明需要进行移动
         newFiber.effectTag = Placement;
         return lastPlacedIndex;
       } else {  // 节点可以放在现在的位置上
         return oldIndex;
       }
-    } else { // 新节点没有被渲染过，为新建的wip，需要标记插入
+    } else { // 没有复用老节点，newFiber为新创建。
       newFiber.effectTag = Placement;
       return lastPlacedIndex;
     }
@@ -603,6 +603,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     return null;
   }
 
+  // 新节点匹配到旧节点哈希表中的某个节点，说明旧节点中的某个节点被提前
   function updateFromMap(
     existingChildren: Map<string | number, Fiber>,
     returnFiber: Fiber,
@@ -610,10 +611,11 @@ function ChildReconciler(shouldTrackSideEffects) {
     newChild: any,
     expirationTime: ExpirationTime,
   ): Fiber | null {
+    // 新的节点为文本节点
     if (typeof newChild === 'string' || typeof newChild === 'number') {
-      // Text nodes don't have keys, so we neither have to check the old nor
-      // new node for the key. If both are text nodes, they match.
+      // 文本节点没有key，使用index获取旧节点
       const matchedFiber = existingChildren.get(newIdx) || null;
+      // 更新文本节点，若matchedFiber不为null，则更新这个节点；若为null，则创建这个节点
       return updateTextNode(
         returnFiber,
         matchedFiber,
@@ -728,6 +730,19 @@ function ChildReconciler(shouldTrackSideEffects) {
   }
 
   // 对子节点为数组的节点调和
+  // 例如：
+  // 老：a->b->c->d
+  // 新：a->b->c->d->e
+  // 首先根据新节点的索引遍历比较新老节点的key是否相同，若相同则对老节点复用并更新为新节点信息
+  // 若遍历过程中新旧节点的key不同，则将当前不同的旧节点和未进行比较的旧节点放入旧节点哈希表
+
+  // 然后继续刚才新节点的遍历，查看新节点是否和旧节点哈希表中某个节点的key相同，
+  // 若相同则复用这个旧节点并更新信息，包括将index设置为新节点的索引
+  // 若不同，则表示这个新节点是新建的，需要创建新的
+
+  // 另外两种情况就是
+  // 新节点已经遍历并创建更新完毕，但还有老节点没有遍历到，则将这个老节点删除
+  // 新节点还没有遍历完，老节点就都已经遍历完了，则创建未遍历到的新节点
   function reconcileChildrenArray(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -747,13 +762,10 @@ function ChildReconciler(shouldTrackSideEffects) {
     let previousNewFiber: Fiber | null = null; // 计算后的子节点链表中，当前的子节点
 
     let oldFiber = currentFirstChild;
-    let lastPlacedIndex = 0;
+    let lastPlacedIndex = 0;  // 新子节点数组中，已经更新或创建的索引
     let newIdx = 0;
     let nextOldFiber = null;
-    // 对新子节点进行遍历，查找可复用的节点。
-    // 意义在于，以相同的顺序分别遍历新老子节点，然后判断他们的key是否相同。
-    // 若不相同，就会跳出循环，此时newIndex表示前面有多少个节点是相同可复用的，
-    // oldFiber表示二者不同的节点为止的老节点
+    // 依次对新老子节点进行遍历，判断他们的key是否相同，直到找到不同的节点
     for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
       // 比较新老节点的index
       // 因为新节点的index为从0开始的递增数值。所以不存在新节点的index大于老节点的index，最多是相等
@@ -772,17 +784,16 @@ function ChildReconciler(shouldTrackSideEffects) {
         newChildren[newIdx],
         expirationTime,
       );
-      if (newFiber === null) {  // 旧节点不可以复用，则直接跳出循环。并将这个不同的老节点赋值给oldFiber
+      if (newFiber === null) {  // 新旧节点的key不同，表示已经找到不同的节点，直接退出
         if (oldFiber === null) {
           oldFiber = nextOldFiber;
         }
         break;
       }
-      // 老节点可以复用
+      // 新老节点的key相同
       if (shouldTrackSideEffects) { // 不是第一次渲染
-        // 若newFiber.alternate为null，表示并没有复用老节点，也就是老节点已经事没用的了。所以直接标记删除
-        // 出现这种情况的原因是新老的key虽然相同，但是节点的类型不同，此时新的节点为新的wip节点，
-        // 此时的alternate必然为null。所以此时老的节点是没有用的，可以直接标记删除
+        // 新老节点的key相同，但是类型不同，所以新节点为新创建的fiber，此时alternate为null
+        // 所以老节点已经没用，直接标记删除
         if (oldFiber && newFiber.alternate === null) {
           deleteChild(returnFiber, oldFiber);
         }
@@ -791,16 +802,16 @@ function ChildReconciler(shouldTrackSideEffects) {
       if (previousNewFiber === null) { // 只在第一次循环的时候发生
         resultingFirstChild = newFiber;
       } else {
-        // TODO: Defer siblings if we're not at the right index for this slot.
-        // I.e. if we had null values before, then we want to defer this
-        // for each null value. However, we also don't want to call updateSlot
-        // with the previous one.
         previousNewFiber.sibling = newFiber;
       }
       previousNewFiber = newFiber;
       oldFiber = nextOldFiber;
     }
     // 已经遍历了所有的新子节点，新节点都已经创建完成。则需要标记删除剩余不需要的老节点
+    // 例如：
+    // 老：a->b->c->d
+    // 新：a->b->c
+    // 此时需要删除老子节点中的d节点
     if (newIdx === newChildren.length) {
       deleteRemainingChildren(returnFiber, oldFiber);
       return resultingFirstChild;
@@ -808,6 +819,10 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     // 老的节点已经复用完，但新的节点还有一部分没有创建
     // 直接对剩余的新节点执行创建操作
+    // 例如：
+    // 老：a->b->c
+    // 新：a->b->c->d
+    // 此时需要创建新节点d
     if (oldFiber === null) {
       for (; newIdx < newChildren.length; newIdx++) {
         const newFiber = createChild(
@@ -829,11 +844,16 @@ function ChildReconciler(shouldTrackSideEffects) {
       return resultingFirstChild;
     }
 
-    // 将所有的子节点放入一个哈希表中，便于查找
+    // 此时新老子节点都没有遍历完，
+    // 例如：
+    // 老：a->b->c->d->e
+    // 新：a->b->d->c->e
+    // 将当前出现不同的旧节点及其之后的旧节点放入哈希表中，也就是将老节点中的c、d、e放入哈希表中
     const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
 
-    // Keep scanning and use the map to restore deleted items as moves.
+    // 继续遍历新节点，查看是否存在于后面的旧节点中，也就是有可能旧节点中的某个节点被提前
     for (; newIdx < newChildren.length; newIdx++) {
+      // 查找当前的新节点是否存在于旧节点中，若存在则复用这个旧节点并更新信息，否则创建这个新节点
       const newFiber = updateFromMap(
         existingChildren,
         returnFiber,
@@ -841,19 +861,16 @@ function ChildReconciler(shouldTrackSideEffects) {
         newChildren[newIdx],
         expirationTime,
       );
-      if (newFiber) {
-        if (shouldTrackSideEffects) {
-          if (newFiber.alternate !== null) {
-            // The new fiber is a work in progress, but if there exists a
-            // current, that means that we reused the fiber. We need to delete
-            // it from the child list so that we don't add it to the deletion
-            // list.
+      if (newFiber) { // 新节点存在于旧节点中， 例如上面的例子中新节点中第三个节点d在老节点的第四个位置
+        if (shouldTrackSideEffects) { // 不是第一次更新
+          if (newFiber.alternate !== null) { // 旧节点中有可以复用的节点，则从旧节点的哈希表中将这个旧节点移除，因为已经匹配到，不需要放在哈希表中了
             existingChildren.delete(
               newFiber.key === null ? newIdx : newFiber.key,
             );
           }
         }
         lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        // 放入处理后的新节点链表中
         if (previousNewFiber === null) {
           resultingFirstChild = newFiber;
         } else {
@@ -864,8 +881,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
 
     if (shouldTrackSideEffects) { // 不是第一次更新
-      // Any existing children that weren't consumed above were deleted. We need
-      // to add them to the deletion list.
+      // 节点处理完毕，清空旧节点哈希表
       existingChildren.forEach(child => deleteChild(returnFiber, child));
     }
 
