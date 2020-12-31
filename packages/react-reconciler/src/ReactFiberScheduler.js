@@ -1120,8 +1120,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
     ReactFiberInstrumentation.debugTool.onBeginWork(workInProgress);
   }
 
-  if (next === null) {
-    // If this doesn't spawn new work, complete the current work.
+  if (next === null) { // 已经遍历到叶子节点
     next = completeUnitOfWork(workInProgress);
   }
 
@@ -1235,6 +1234,8 @@ function renderRoot(
 
   startWorkLoopTimer(nextUnitOfWork);
 
+  // 从父节点的wip开始遍历类似于深度优先，直到叶子节点。
+  // 更新子节点时，比较新老子节点，返回处理后的
   do {
     try {
       workLoop(isYieldy);

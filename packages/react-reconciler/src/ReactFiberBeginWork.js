@@ -128,6 +128,7 @@ if (__DEV__) {
 // 调和子节点
 // 若当前父组件为第一次渲染，则执行mountChildFibers
 // 若不为第一次渲染，则执行reconcileChildFibers
+// 其作用为将当前节点的新旧子节点进行对比处理，将处理后的新子节点放入当前节点的子节点
 export function reconcileChildren(
   current: Fiber | null, // 当前节点的fiber
   workInProgress: Fiber,  // 当前节点的wip
@@ -414,6 +415,7 @@ function updateFunctionComponent(
   // React DevTools reads this flag.
   workInProgress.effectTag |= PerformedWork;
   // 开始调和子节点
+  // 将当前节点的新旧子节点进行对比处理，将处理后的新子节点放入当前节点的子节点
   reconcileChildren(
     current,
     workInProgress,
@@ -443,20 +445,17 @@ function updateClassComponent(
   }
   prepareToReadContext(workInProgress, renderExpirationTime);
 
-  const instance = workInProgress.stateNode;
+  const instance = workInProgress.stateNode; // 获取节点对应的具体组件对象
   let shouldUpdate;
-  if (instance === null) {
-    if (current !== null) {
-      // An class component without an instance only mounts if it suspended
-      // inside a non- concurrent tree, in an inconsistent state. We want to
-      // tree it like a new mount, even though an empty version of it already
-      // committed. Disconnect the alternate pointers.
+  if (instance === null) { // 首次渲染该class组件
+    if (current !== null) { // 当前组件为异步suspend组件
       current.alternate = null;
       workInProgress.alternate = null;
       // Since this is conceptually a new fiber, schedule a Placement effect
       workInProgress.effectTag |= Placement;
     }
     // In the initial pass we might need to construct the instance.
+    // 执行class组件的构造函数，并将这个对象实例和wip互相进行关联
     constructClassInstance(
       workInProgress,
       Component,
@@ -1491,6 +1490,7 @@ function bailoutOnAlreadyFinishedWork(
 // 若两次的props相同，或者是没有更新或有更新但是优先级别不高，
 // 则本次不需要更新，直接执行bailoutOnAlreadyFinishedWork跳过
 // 若当前不是第一个节点或不是第一次渲染，则根据当前节点的类型执行更新方法
+// 返回当前节点最新的子节点
 function beginWork(
   current: Fiber | null,  // 节点的fiber对象
   workInProgress: Fiber,  // 节点的wip对象

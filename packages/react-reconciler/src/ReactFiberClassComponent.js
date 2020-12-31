@@ -495,16 +495,19 @@ function checkClassInstance(workInProgress: Fiber, ctor: any, newProps: any) {
   }
 }
 
+// 为对象实例挂在updater,将对象实例和节点的wip进行关联
+// instance._reactInternalFiber = wip
+// wip.stateNode = instance
 function adoptClassInstance(workInProgress: Fiber, instance: any): void {
-  instance.updater = classComponentUpdater;
-  workInProgress.stateNode = instance;
-  // The instance needs access to the fiber so that it can schedule updates
-  ReactInstanceMap.set(instance, workInProgress);
+  instance.updater = classComponentUpdater; // 挂在update更新器
+  workInProgress.stateNode = instance;// 将对象实例挂载到wip的stateNode中
+  ReactInstanceMap.set(instance, workInProgress); // 将wip对象挂在到对象实例的_reactInternalFiber中
   if (__DEV__) {
     instance._reactInternalInstance = fakeInternalInstance;
   }
 }
 
+// 执行class组件的构造函数，并将这个对象实例和wip互相进行关联
 function constructClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -554,11 +557,13 @@ function constructClassInstance(
     }
   }
 
-  const instance = new ctor(props, context);
+  const instance = new ctor(props, context); // 执行组件的class构造方法
+  // 初始化state对象
   const state = (workInProgress.memoizedState =
     instance.state !== null && instance.state !== undefined
       ? instance.state
       : null);
+  // 为对象实例挂在updater,将对象实例和节点的wip进行关联
   adoptClassInstance(workInProgress, instance);
 
   if (__DEV__) {

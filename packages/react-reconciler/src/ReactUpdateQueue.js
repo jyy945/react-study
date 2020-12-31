@@ -165,6 +165,7 @@ export function createUpdateQueue<State>(baseState: State): UpdateQueue<State> {
   return queue;
 }
 
+// 复制更新队列
 function cloneUpdateQueue<State>(
   currentQueue: UpdateQueue<State>,
 ): UpdateQueue<State> {
@@ -320,6 +321,7 @@ export function enqueueCapturedUpdate<State>(
   }
 }
 
+// 保证wip中的更新队列是克隆的，防止修改更新队列时对fiber中的更新队列造成污染
 function ensureWorkInProgressQueueIsAClone<State>(
   workInProgress: Fiber,
   queue: UpdateQueue<State>,
@@ -328,6 +330,8 @@ function ensureWorkInProgressQueueIsAClone<State>(
   if (current !== null) {
     // If the work-in-progress queue is equal to the current queue,
     // we need to clone it first.
+    // 若fiber和wip的更新队列是相同的，也就是地址相同，则需要将wip的更新队列进行复制
+    // 因为会操作更新队列，污染fiber的更新队列，因此需要复制
     if (queue === current.updateQueue) {
       queue = workInProgress.updateQueue = cloneUpdateQueue(queue);
     }
@@ -370,6 +374,7 @@ function getStateFromUpdate<State>(
     case UpdateState: {
       const payload = update.payload;
       let partialState;
+      // 此处的payload为setState中的参数
       if (typeof payload === 'function') {
         // Updater function
         if (__DEV__) {
@@ -421,7 +426,7 @@ export function processUpdateQueue<State>(
   let newFirstUpdate = null;
   let newExpirationTime = NoWork;
 
-  // Iterate through the list of updates to compute the result.
+  // 遍历更新队列去计算结果
   let update = queue.firstUpdate;
   let resultState = newBaseState;
   while (update !== null) {

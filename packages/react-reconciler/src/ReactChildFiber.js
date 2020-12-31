@@ -232,10 +232,6 @@ function warnOnFunctionType() {
   );
 }
 
-// This wrapper function exists because I expect to clone the code in each path
-// to be able to optimize each path individually by branching early. This needs
-// a compiler or we can do it manually. Helpers that don't need this branching
-// live outside of this function.
 // 对子组件进行调和
 function ChildReconciler(shouldTrackSideEffects) {
   // 将子节点的删除动作记录在父节点的effectList中
@@ -1235,7 +1231,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     const isObject = typeof newChild === 'object' && newChild !== null;
 
-    // 子节点只有一个节点且为ReactElement节点
+    // 子节点为ReactElement节点
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:
@@ -1259,7 +1255,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    // 子节点只有一个节点且为文本节点
+    // 子节点为文本节点
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(
