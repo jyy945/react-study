@@ -144,6 +144,10 @@ if (__DEV__) {
   Object.freeze(fakeInternalInstance);
 }
 
+// 调用执行getDerivedStateFromProps方法
+// 首先执行getDerivedStateFromProps方法，得到一个新的state
+// 将新的state和旧的state进行merger
+// 将罪行的state更新到更新队列的baseState上
 export function applyDerivedStateFromProps(
   workInProgress: Fiber,
   ctor: any,
@@ -163,20 +167,23 @@ export function applyDerivedStateFromProps(
     }
   }
 
+  // 执行getDerivedStateFromProps方法
   const partialState = getDerivedStateFromProps(nextProps, prevState);
 
   if (__DEV__) {
     warnOnUndefinedDerivedState(ctor, partialState);
   }
-  // Merge the partial state and the previous state.
+  // 将partialState和旧的state进行merge
+  // 若partialState为空，则merge依旧是旧的state
+  // 若partialState不为空，则二者进行merge
+  // 注意为浅拷贝，且partialState的值会覆盖旧的state
   const memoizedState =
     partialState === null || partialState === undefined
       ? prevState
       : Object.assign({}, prevState, partialState);
   workInProgress.memoizedState = memoizedState;
 
-  // Once the update queue is empty, persist the derived state onto the
-  // base state.
+  // 若更新队列不为空，则将这个最新的state更新到更新队列的baseState上
   const updateQueue = workInProgress.updateQueue;
   if (updateQueue !== null && workInProgress.expirationTime === NoWork) {
     updateQueue.baseState = memoizedState;
@@ -202,8 +209,9 @@ const classComponentUpdater = {
     enqueueUpdate(fiber, update);
     scheduleWork(fiber, expirationTime);
   },
+  // 将
   enqueueReplaceState(inst, payload, callback) {
-    const fiber = ReactInstanceMap.get(inst);
+    const fiber = ReactInstanceMap.get(inst); // 获取对象实例对用的wip
     const currentTime = requestCurrentTime();
     const expirationTime = computeExpirationForFiber(currentTime, fiber);
 
@@ -241,6 +249,9 @@ const classComponentUpdater = {
   },
 };
 
+// 检查是否需要组件更新
+// 首先若存在shouldComponentUpdate生命周期函数，则执行，获取返回结果查看是否需要更新
+// 然后查看该组件是否为pureComponent
 function checkShouldComponentUpdate(
   workInProgress,
   ctor,
@@ -251,6 +262,7 @@ function checkShouldComponentUpdate(
   nextContext,
 ) {
   const instance = workInProgress.stateNode;
+  // 若存在scu，则执行
   if (typeof instance.shouldComponentUpdate === 'function') {
     startPhaseTimer(workInProgress, 'shouldComponentUpdate');
     const shouldUpdate = instance.shouldComponentUpdate(
@@ -272,6 +284,7 @@ function checkShouldComponentUpdate(
     return shouldUpdate;
   }
 
+  // 若为PureReactComponent，则检查新旧props和新旧state是否浅等于，是的话也不用更新
   if (ctor.prototype && ctor.prototype.isPureReactComponent) {
     return (
       !shallowEqual(oldProps, newProps) || !shallowEqual(oldState, newState)
@@ -660,6 +673,7 @@ function constructClassInstance(
   return instance;
 }
 
+// 调用执行componentWillMount声明周期方法
 function callComponentWillMount(workInProgress, instance) {
   startPhaseTimer(workInProgress, 'componentWillMount');
   const oldState = instance.state;
@@ -673,6 +687,7 @@ function callComponentWillMount(workInProgress, instance) {
 
   stopPhaseTimer();
 
+  // cwm执行了
   if (oldState !== instance.state) {
     if (__DEV__) {
       warningWithoutStack(
@@ -687,6 +702,7 @@ function callComponentWillMount(workInProgress, instance) {
   }
 }
 
+// 调用执行componentWillReceiveProps方法
 function callComponentWillReceiveProps(
   workInProgress,
   instance,
@@ -722,7 +738,7 @@ function callComponentWillReceiveProps(
   }
 }
 
-// Invokes the mount life-cycles on a previously never rendered instance.
+// 在从未进行渲染过的class组件中执行mount生命周期方法
 function mountClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -781,7 +797,10 @@ function mountClassInstance(
     }
   }
 
+  // 若为初次渲染，则updateQueue肯定为空
   let updateQueue = workInProgress.updateQueue;
+  // 若更新队列不为空
+  // 则处理更新队列，对更新队列进行遍历，使用update对state进行计算生成新的state
   if (updateQueue !== null) {
     processUpdateQueue(
       workInProgress,
@@ -790,9 +809,11 @@ function mountClassInstance(
       instance,
       renderExpirationTime,
     );
-    instance.state = workInProgress.memoizedState;
+    instance.state = workInProgress.memoizedState; // 将计算后的最新的state赋值给对象的实例的state
   }
 
+  // 执行getDerivedStateFromProps生命周期函数，也就是将props映射到state上
+  // 将生命周期函数执行后的结果和原state进行merger产生新的state
   const getDerivedStateFromProps = ctor.getDerivedStateFromProps;
   if (typeof getDerivedStateFromProps === 'function') {
     applyDerivedStateFromProps(
@@ -804,8 +825,10 @@ function mountClassInstance(
     instance.state = workInProgress.memoizedState;
   }
 
-  // In order to support react-lifecycles-compat polyfilled components,
-  // Unsafe lifecycles should not be invoked for components using the new APIs.
+  // 若执行旧的声明周期方法componentWillMount
+  // 但前提是同时不会存在getDerivedStateFromProps或getSnapshotBeforeUpdate方法，
+  // 否则componentWillMount方法不会执行
+  // 之所以这样是因为getDerivedStateFromProps是新的方法，二者同时执行会产生问题
   if (
     typeof ctor.getDerivedStateFromProps !== 'function' &&
     typeof instance.getSnapshotBeforeUpdate !== 'function' &&
@@ -828,11 +851,14 @@ function mountClassInstance(
     }
   }
 
+  // 若存在componentDidMount，则标记为Update，等到用时调用
   if (typeof instance.componentDidMount === 'function') {
     workInProgress.effectTag |= Update;
   }
 }
 
+// 重新使用class的instance渲染
+// 执行顺序：componentWillReceiveProps/getDerivedStateFromProps->shouldComponentUpdate->componentWillMount
 function resumeMountClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -858,22 +884,22 @@ function resumeMountClassInstance(
     nextContext = getMaskedContext(workInProgress, nextLegacyUnmaskedContext);
   }
 
+  // 查看是否有getDerivedStateFromProps和getSnapshotBeforeUpdate声明周期方法
   const getDerivedStateFromProps = ctor.getDerivedStateFromProps;
   const hasNewLifecycles =
     typeof getDerivedStateFromProps === 'function' ||
     typeof instance.getSnapshotBeforeUpdate === 'function';
 
-  // Note: During these life-cycles, instance.props/instance.state are what
-  // ever the previously attempted to render - not the "current". However,
-  // during componentDidUpdate we pass the "current" props.
-
-  // In order to support react-lifecycles-compat polyfilled components,
-  // Unsafe lifecycles should not be invoked for components using the new APIs.
+  // 若没有getDerivedStateFromProps和getSnapshotBeforeUpdate
+  // 同时有componentWillReceiveProps，则执行componentWillReceiveProps
+  // 目的是为了防止冲突的产生
   if (
     !hasNewLifecycles &&
     (typeof instance.UNSAFE_componentWillReceiveProps === 'function' ||
       typeof instance.componentWillReceiveProps === 'function')
   ) {
+    // 若新旧的props不相同，则执行componentWillReceiveProps
+    // 注意的是componentWillReceiveProps的比较是浅比较
     if (oldProps !== newProps || oldContext !== nextContext) {
       callComponentWillReceiveProps(
         workInProgress,
@@ -884,8 +910,10 @@ function resumeMountClassInstance(
     }
   }
 
+  // 重新将hasForceUpdate设置为false
   resetHasForceUpdateBeforeProcessing();
 
+  // 对更新队列进行遍历执行update，计算最后的state
   const oldState = workInProgress.memoizedState;
   let newState = (instance.state = oldState);
   let updateQueue = workInProgress.updateQueue;
@@ -899,6 +927,7 @@ function resumeMountClassInstance(
     );
     newState = workInProgress.memoizedState;
   }
+  // 不需要更新
   if (
     oldProps === newProps &&
     oldState === newState &&
@@ -913,6 +942,7 @@ function resumeMountClassInstance(
     return false;
   }
 
+  // 执行getDerivedStateFromProps生命周期方法，并计算获取最新的state
   if (typeof getDerivedStateFromProps === 'function') {
     applyDerivedStateFromProps(
       workInProgress,
@@ -925,6 +955,7 @@ function resumeMountClassInstance(
 
   const shouldUpdate =
     checkHasForceUpdateAfterProcessing() ||
+    // 通过执行shouldComponentUpdate生命周期方法和purecomponent，查看是否需要执行
     checkShouldComponentUpdate(
       workInProgress,
       ctor,
@@ -935,9 +966,9 @@ function resumeMountClassInstance(
       nextContext,
     );
 
+  // 需要更新
   if (shouldUpdate) {
-    // In order to support react-lifecycles-compat polyfilled components,
-    // Unsafe lifecycles should not be invoked for components using the new APIs.
+    // 若没有getDerivedStateFromProps和getSnapshotBeforeUpdate，则执行componentWillMount
     if (
       !hasNewLifecycles &&
       (typeof instance.UNSAFE_componentWillMount === 'function' ||
@@ -977,7 +1008,7 @@ function resumeMountClassInstance(
   return shouldUpdate;
 }
 
-// Invokes the update life-cycles and returns false if it shouldn't rerender.
+// 组件之前已经渲染过一次，这次需要更新
 function updateClassInstance(
   current: Fiber,
   workInProgress: Fiber,
@@ -1005,12 +1036,8 @@ function updateClassInstance(
     typeof getDerivedStateFromProps === 'function' ||
     typeof instance.getSnapshotBeforeUpdate === 'function';
 
-  // Note: During these life-cycles, instance.props/instance.state are what
-  // ever the previously attempted to render - not the "current". However,
-  // during componentDidUpdate we pass the "current" props.
-
-  // In order to support react-lifecycles-compat polyfilled components,
-  // Unsafe lifecycles should not be invoked for components using the new APIs.
+  // 若不存在getDerivedStateFromProps和getSnapshotBeforeUpdate，
+  // 存在componentWillReceiveProps，则执行componentWillReceiveProps
   if (
     !hasNewLifecycles &&
     (typeof instance.UNSAFE_componentWillReceiveProps === 'function' ||
@@ -1028,6 +1055,7 @@ function updateClassInstance(
 
   resetHasForceUpdateBeforeProcessing();
 
+  // 对更新队列中进行遍历，计算最新的state
   const oldState = workInProgress.memoizedState;
   let newState = (instance.state = oldState);
   let updateQueue = workInProgress.updateQueue;
@@ -1042,6 +1070,8 @@ function updateClassInstance(
     newState = workInProgress.memoizedState;
   }
 
+  // 不需要渲染
+  // 依次标记cdu、getSnapshotBeforeUpdate
   if (
     oldProps === newProps &&
     oldState === newState &&

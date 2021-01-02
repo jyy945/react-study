@@ -425,7 +425,29 @@ function updateFunctionComponent(
   return workInProgress.child;
 }
 
-// 更新function类型组件
+// 更新class类型组件
+// 根据组件的更新状态，执行不同的方法
+// 1.从未渲染过，第一次进行渲染
+// 则首先执行对象的构造方法，将对象实例和wip互相进行关联
+// /instance._reactInternalFiber = wip
+// /wip.stateNode = instance
+// 创建完对象实例后，则执行getDerivedStateFromProps生命周期方法，将返回的state和旧的state进行merger
+// 若不存在新的生命周期方法，则执行cwm，因为cwm中可能使用setState等修改更新队列，所以需要执行processUpdateQueue计算新的state
+// 最后若存在cdm，则进行标记，在合适的地方执行cdm
+// 执行顺序：constructor->getDerivedStateFromProps/componentWillMount->标记componentDidMount
+// 2.第一次渲染的过程中出错被挂起，第二次使用对象实例继续渲染
+// 首先若不存在新的api并且新旧props不同，则执行componentWillReceiveProps，但是若存在getDerivedStateFromProps，则不执行
+// 执行getDerivedStateFromProps生成新的state
+// 执行shouldComponentUpdate，判断是否需要更新
+// 若不存在新的api，则执行componentWillMount
+// 执行顺序：componentWillReceiveProps/getDerivedStateFromProps->shouldComponentUpdate->componentWillMount->标记componentDidMount
+// 3.非第一次渲染，之前已经渲染过
+// 若不存在新api，则执行componentWillReceiveProps
+// 若新旧的props和state相同，并且不是forceUpdate，则依次标记componentDidUpdate、getSnapshotBeforeUpdate，稍后执行
+// 执行getDerivedStateFromProps，将新的props和旧的state进行merger，产生新的state
+// 执行shouldComponentUpdate，由用户决定更新
+// 若需要更新，则在没有新api的情况下执行componentWillUpdate，然后标记componentDidUpdate、getSnapshotBeforeUpdate
+// 若不需要更新，则直接标记componentDidUpdate、getSnapshotBeforeUpdate
 function updateClassComponent(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -454,7 +476,6 @@ function updateClassComponent(
       // Since this is conceptually a new fiber, schedule a Placement effect
       workInProgress.effectTag |= Placement;
     }
-    // In the initial pass we might need to construct the instance.
     // 执行class组件的构造函数，并将这个对象实例和wip互相进行关联
     constructClassInstance(
       workInProgress,
@@ -462,6 +483,11 @@ function updateClassComponent(
       nextProps,
       renderExpirationTime,
     );
+    // 执行生命周期方法，
+    // 首先若更新队列不为空，则首先执行processUpdateQueue，也就是使用更新队列中的update对state进行更新计算产生新的state
+    // 然后若存在getDerivedStateFromProps则执行，
+    // 若不存在getDerivedStateFromProps和getSnapshotBeforeUpdate，但存在componentWillMount，则执行componentWillMount
+    // 在每个生命周期方法执行后，都会执行processUpdateQueue来计算新的state
     mountClassInstance(
       workInProgress,
       Component,
@@ -469,15 +495,18 @@ function updateClassComponent(
       renderExpirationTime,
     );
     shouldUpdate = true;
-  } else if (current === null) {
-    // In a resume, we'll already have an instance we can reuse.
+  }
+  // 有instance但是没有current，说明曾经被挂起。
+  // 比如执行component.render方法，报错就会中断，但instance已经创建
+  // 此时可以复用instance
+  else if (current === null) {
     shouldUpdate = resumeMountClassInstance(
       workInProgress,
       Component,
       nextProps,
       renderExpirationTime,
     );
-  } else {
+  } else {  // 既有instance又有current，说明已经经过渲染了
     shouldUpdate = updateClassInstance(
       current,
       workInProgress,
@@ -1615,6 +1644,7 @@ function beginWork(
         renderExpirationTime,
       );
     }
+    // 调和function类型组件
     case FunctionComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;  // 旧的的props
@@ -1631,6 +1661,7 @@ function beginWork(
         renderExpirationTime,
       );
     }
+    // 调和class类型组件
     case ClassComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;

@@ -1070,6 +1070,8 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
 }
 
 // 处理单个fiber节点
+// 根据节点不同的类型执行后获取到新子节点，然后对比老子节点，获取处理后的新子节点
+// 若已经处理到叶子节点，则执行completeUnitOfWork
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   // 获取wip对应的filber对象
   const current = workInProgress.alternate;

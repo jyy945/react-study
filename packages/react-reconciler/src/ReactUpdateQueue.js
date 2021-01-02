@@ -328,8 +328,6 @@ function ensureWorkInProgressQueueIsAClone<State>(
 ): UpdateQueue<State> {
   const current = workInProgress.alternate;
   if (current !== null) {
-    // If the work-in-progress queue is equal to the current queue,
-    // we need to clone it first.
     // 若fiber和wip的更新队列是相同的，也就是地址相同，则需要将wip的更新队列进行复制
     // 因为会操作更新队列，污染fiber的更新队列，因此需要复制
     if (queue === current.updateQueue) {
@@ -339,6 +337,16 @@ function ensureWorkInProgressQueueIsAClone<State>(
   return queue;
 }
 
+// 使用update计算新的state
+// 有两种方式：
+// 1.参数为对象
+// setState({
+//    key: value
+// })
+// 2. 参数为方法
+// setState((oldState, newState){
+//   return {key: value}
+// }))
 function getStateFromUpdate<State>(
   workInProgress: Fiber,
   queue: UpdateQueue<State>,
@@ -348,8 +356,10 @@ function getStateFromUpdate<State>(
   instance: any,
 ): any {
   switch (update.tag) {
+    // 执行的是替换操作，
     case ReplaceState: {
       const payload = update.payload;
+      // 若setState的参数为函数，则将新旧state作为函数参数执行，并返回函数的返回值
       if (typeof payload === 'function') {
         // Updater function
         if (__DEV__) {
@@ -363,14 +373,14 @@ function getStateFromUpdate<State>(
         }
         return payload.call(instance, prevState, nextProps);
       }
-      // State object
+      // 如setState的参数为对象，则直接返回这个对象
       return payload;
     }
     case CaptureUpdate: {
       workInProgress.effectTag =
         (workInProgress.effectTag & ~ShouldCapture) | DidCapture;
     }
-    // Intentional fallthrough
+    // 执行的是更新操作
     case UpdateState: {
       const payload = update.payload;
       let partialState;
@@ -391,11 +401,13 @@ function getStateFromUpdate<State>(
         // Partial state object
         partialState = payload;
       }
+      // 若返回值为null或undefined，则返回旧的state
       if (partialState === null || partialState === undefined) {
-        // Null and undefined are treated as no-ops.
         return prevState;
       }
-      // Merge the partial state and the previous state.
+      // 对新旧state进行merge
+      // 进行merge的方式为，拥有相同的同名属性时，后面的属性会覆盖前面的
+      // 注意的是这种merge是个浅拷贝
       return Object.assign({}, prevState, partialState);
     }
     case ForceUpdate: {
@@ -406,6 +418,7 @@ function getStateFromUpdate<State>(
   return prevState;
 }
 
+// 处理更新队列，对更新队列进行遍历，使用update对state进行计算生成新的state
 export function processUpdateQueue<State>(
   workInProgress: Fiber,
   queue: UpdateQueue<State>,
@@ -414,15 +427,14 @@ export function processUpdateQueue<State>(
   renderExpirationTime: ExpirationTime,
 ): void {
   hasForceUpdate = false;
-
+  // 保证wip中的更新队列是克隆的，防止修改更新队列时对fiber中的更新队列造成污染
   queue = ensureWorkInProgressQueueIsAClone(workInProgress, queue);
 
   if (__DEV__) {
     currentlyProcessingQueue = queue;
   }
 
-  // These values may change as we process the queue.
-  let newBaseState = queue.baseState;
+  let newBaseState = queue.baseState; // 计算后新的state，都会赋给给baseState
   let newFirstUpdate = null;
   let newExpirationTime = NoWork;
 
@@ -431,8 +443,7 @@ export function processUpdateQueue<State>(
   let resultState = newBaseState;
   while (update !== null) {
     const updateExpirationTime = update.expirationTime;
-    if (updateExpirationTime > renderExpirationTime) {
-      // This update does not have sufficient priority. Skip it.
+    if (updateExpirationTime > renderExpirationTime) { // update的优先级不高，直接跳过
       if (newFirstUpdate === null) {
         // This is the first skipped update. It will be the first update in
         // the new list.
@@ -450,8 +461,7 @@ export function processUpdateQueue<State>(
         newExpirationTime = updateExpirationTime;
       }
     } else {
-      // This update does have sufficient priority. Process it and compute
-      // a new result.
+      // 通过update计算新的state
       resultState = getStateFromUpdate(
         workInProgress,
         queue,
@@ -477,7 +487,7 @@ export function processUpdateQueue<State>(
     update = update.next;
   }
 
-  // Separately, iterate though the list of captured updates.
+  //遍历捕获的更新列表
   let newFirstCapturedUpdate = null;
   update = queue.firstCapturedUpdate;
   while (update !== null) {
@@ -572,10 +582,12 @@ function callCallback(callback, context) {
   callback.call(context);
 }
 
+// 重新将hasForceUpdate设置为false
 export function resetHasForceUpdateBeforeProcessing() {
   hasForceUpdate = false;
 }
 
+// 获取hasForceUpdate
 export function checkHasForceUpdateAfterProcessing(): boolean {
   return hasForceUpdate;
 }
