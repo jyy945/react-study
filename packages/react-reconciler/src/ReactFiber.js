@@ -217,11 +217,11 @@ function FiberNode(
   mode: TypeOfMode,
 ) {
   // Instance
-  this.tag = tag;
+  this.tag = tag; // react中定义的组件的类型，在ReactWorkTags中。例如:HostRoot、FunctionComponent等
   this.key = key;
   this.elementType = null;
   this.type = null;
-  this.stateNode = null;
+  this.stateNode = null; // 状态节点。HostTags类型的stateNode为fiberRoot，ClassComponent类型的stateNode为组件对象的实例
 
   // Fiber
   this.return = null;
@@ -392,6 +392,7 @@ export function createHostRootFiber(isConcurrent: boolean): Fiber {
     mode |= ProfileMode;
   }
 
+  // 创建rootFiber对象，其tag为HostRoot，pendingProps和key都是null
   return createFiber(HostRoot, null, null, mode);
 }
 

@@ -291,14 +291,13 @@ type Work = {
   _callbacks: Array<() => mixed> | null,
   _didCommit: boolean,
 };
-
+// 发布订阅模式
 function ReactWork() {
   this._callbacks = null;
   this._didCommit = false;
-  // TODO: Avoid need to bind by replacing callbacks in the update queue with
-  // list of Work objects.
   this._onCommit = this._onCommit.bind(this);
 }
+// 订阅
 ReactWork.prototype.then = function(onCommit: () => mixed): void {
   if (this._didCommit) {
     onCommit();
@@ -310,6 +309,8 @@ ReactWork.prototype.then = function(onCommit: () => mixed): void {
   }
   callbacks.push(onCommit);
 };
+
+// 发布
 ReactWork.prototype._onCommit = function(): void {
   if (this._didCommit) {
     return;
@@ -342,7 +343,9 @@ function ReactRoot(
     const root = DOMRenderer.createContainer(container, isConcurrent, hydrate); // 创建fiberRoot
     this._internalRoot = root;  // 将fiberRoot赋值给_internalRoot
   }
-  // 渲染fiber树
+  // 渲染整个fiber树
+  // 此时的children为第一个reactElement，例如：React.render(App, document.getElementById("div"))
+  // children就是react为App生成的对应的reactElement对象，这个对象对应的fiber将会是rootFiber的第一个子节点
   ReactRoot.prototype.render = function(
     children: ReactNodeList,
     callback: ?() => mixed,
@@ -519,8 +522,12 @@ function legacyCreateRootFromDOMContainer(
   return new ReactRoot(container, isConcurrent, shouldHydrate); // 为react创建reactRoot
 }
 
-// 向container中创建添加渲染子树
-// 创建一个reactRoot赋值给container.legacy_reactRootContainer
+// 向container中创建添加渲染子树, 并返回这个fiberRoot的第一个子节点的stateNode
+// 创建一个reactRoot赋值给container._reactRootContainer
+// 也就是container._reactRootContainer = ReactRoot
+// ReactRoot._internalRoot = fiberRoot
+// fiberRoot.current = rootFiber
+// rootFiber.stateNode = fiberRoot
 // 若为首次渲染，则执行reactRoot.render，否则执行fiberRoot._reactRootContainer
 function legacyRenderSubtreeIntoContainer(
   parentComponent: ?React$Component<any, any>,
@@ -543,15 +550,18 @@ function legacyRenderSubtreeIntoContainer(
   // member of intersection type." Whyyyyyy.
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
-    // 为container创建ReactRoot对象
-    // 通过会创建fiberRoot对象赋值给reactRoot对象的_internalRoot
+    // 为container创建ReactRoot对象并返回
+    // 会创建fiberRoot对象赋值给reactRoot对象的_internalRoot
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
     );
+    // 若包括回调函数，则构建回调函数，将作用域设置为rootFiber的子节点也就是App对应的fiber的stateNode，一般为App的对象实例
+    // 之所以这样做是为了将第一个fiber子节点的stateNode作用域作用于该回调函数，只有在渲染之后构建完毕fiber树，这个回调才会执行
     if (typeof callback === 'function') {
       const originalCallback = callback;
       callback = function() {
+        // 获取rootFiber的子节点的stateNode
         const instance = DOMRenderer.getPublicRootInstance(root._internalRoot);
         originalCallback.call(instance);
       };
@@ -653,12 +663,20 @@ const ReactDOM: Object = {
     );
   },
 
+  // 返回这个fiberRoot的第一个子节点的stateNode，
+  // 例如ReactDOM.render(App, document.getElementById("div")
+  // 返回的就是App节点对应的fiber的stateNode，需要根据当前当前节点的类型决定
+  // ClassComponent类型的stateNode为组件对象的实例
   render(
+    // element为ReactElement,包含如下属性: $$typeof，type，key，ref，props，_owner，props中包含children子节点
+    // 就是ReactDOM.render(App, document.getElementById("div")中，对App对应的ReactElement对象
     element: React$Element<any>,
     container: DOMContainer,
     callback: ?Function,
   ) {
     // 将render子树添加到container中
+    // 将为container创建其对应的fiberRoot和footFiber，为整个fiber树的根节点
+    // 而element的fiber则为rootFiber的子节点
     return legacyRenderSubtreeIntoContainer(
       null,
       element,

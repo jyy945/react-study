@@ -145,8 +145,8 @@ export function createFiberRoot(
     }: FiberRoot);
   } else {
     root = ({
-      current: uninitializedFiber,
-      containerInfo: containerInfo,
+      current: uninitializedFiber,  // rootFiber对象
+      containerInfo: containerInfo, // react应用挂载的dom节点
       pendingChildren: null,
 
       earliestPendingTime: NoWork,

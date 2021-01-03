@@ -109,7 +109,7 @@ function getContextForSubtree(
 // 对fiberRoot的更新进行调度
 // 创建一个update，然后将update放入update queue中
 function scheduleRootUpdate(
-  current: Fiber,
+  current: Fiber, // rootFiber
   element: ReactNodeList,
   expirationTime: ExpirationTime,
   callback: ?Function,
@@ -137,6 +137,8 @@ function scheduleRootUpdate(
   // being called "element".
   update.payload = {element};
 
+  // 若存在callback则赋值为update.callback
+  // 此时callback为ReactDOM.render(App, "dom", callback)中callback被legacyRenderSubtreeIntoContainer方法中重新封装的回调
   callback = callback === undefined ? null : callback;
   if (callback !== null) {
     warningWithoutStack(
@@ -157,7 +159,7 @@ function scheduleRootUpdate(
 
 // 使用expirationTime更新fiber树
 export function updateContainerAtExpirationTime(
-  element: ReactNodeList,
+  element: ReactNodeList, // 第一个子节点App
   container: OpaqueRoot, // fiberRoot
   parentComponent: ?React$Component<any, any>,
   expirationTime: ExpirationTime,
@@ -283,7 +285,7 @@ export function createContainer(
 // 更新fiber树
 // 计算expiration time，根据expiration time更新fiber树
 export function updateContainer(
-  element: ReactNodeList,
+  element: ReactNodeList, // 第一个子节点App
   container: OpaqueRoot,  // fiberRoot
   parentComponent: ?React$Component<any, any>,
   callback: ?Function,
@@ -315,10 +317,11 @@ export {
   flushSync,
 };
 
+// 获取rootFiber的第一个子节点的stateNode
 export function getPublicRootInstance(
   container: OpaqueRoot,
 ): React$Component<any, any> | PublicInstance | null {
-  const containerFiber = container.current;
+  const containerFiber = container.current; // rootFiber
   if (!containerFiber.child) {
     return null;
   }

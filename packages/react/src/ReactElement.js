@@ -22,6 +22,7 @@ const RESERVED_PROPS = {
 
 let specialPropKeyWarningShown, specialPropRefWarningShown;
 
+// 是否为合法的ref值
 function hasValidRef(config) {
   if (__DEV__) {
     if (hasOwnProperty.call(config, 'ref')) {
@@ -34,6 +35,7 @@ function hasValidRef(config) {
   return config.ref !== undefined;
 }
 
+// 是否为有效的key
 function hasValidKey(config) {
   if (__DEV__) {
     if (hasOwnProperty.call(config, 'key')) {
@@ -108,19 +110,15 @@ function defineRefPropWarningGetter(props, displayName) {
  * @param {*} props
  * @internal
  */
+// 创建ReactElement
 const ReactElement = function(type, key, ref, self, source, owner, props) {
   const element = {
-    // This tag allows us to uniquely identify this as a React Element
-    $$typeof: REACT_ELEMENT_TYPE,
-
-    // Built-in properties that belong on the element
-    type: type,
+    $$typeof: REACT_ELEMENT_TYPE, // 默认为REACT_ELEMENT_TYPE
+    type: type, // jsx节点
     key: key,
     ref: ref,
     props: props,
-
-    // Record the component responsible for creating this element.
-    _owner: owner,
+    _owner: owner,  // 父节点的fiber对象
   };
 
   if (__DEV__) {
@@ -168,10 +166,27 @@ const ReactElement = function(type, key, ref, self, source, owner, props) {
  * Create and return a new ReactElement of the given type.
  * See https://reactjs.org/docs/react-api.html#createelement
  */
+// 为节点创建ReactElement对象，jsx经babel编译之后产生React.createElement，因此在react文件中必须引入react
+// type: jsx中的节点，比如自定义组件App，是个对象或方法，或者html节点是个字符串
+// config: 为标签中的属性，比如id，class，name
+// children: type的子节点，也被编译为React.createElement,多个子节点会添加到多个参数
+// 例如：
+// <div id="123">
+//   <App></App>
+//   <p className="one">1</p>
+//   <p className="two">2</p>
+// </div>
+// 经babel编译后：
+//  React.createElement("div", { id: "123" },
+//     React.createElement(App, null),
+//     React.createElement("p", {class: "one"}, "1"),
+//     React.createElement("p", {class: "two"}, "2")
+//  )
 export function createElement(type, config, children) {
   let propName;
-
-  // Reserved names are extracted
+  // 用于保存处理后的props，里面包括config中的属性(但不包括key，ref，__self，__source)，也就是节点上的属性；
+  // 也包括当前节点设置的defaultProps
+  // 另外包括其所有的子节点children
   const props = {};
 
   let key = null;
@@ -180,9 +195,11 @@ export function createElement(type, config, children) {
   let source = null;
 
   if (config != null) {
+    // 是否为合法的ref值
     if (hasValidRef(config)) {
       ref = config.ref;
     }
+    // 是否为有效的key
     if (hasValidKey(config)) {
       key = '' + config.key;
     }
@@ -190,6 +207,7 @@ export function createElement(type, config, children) {
     self = config.__self === undefined ? null : config.__self;
     source = config.__source === undefined ? null : config.__source;
     // Remaining properties are added to a new props object
+    // config剩下的其他的属性直接赋值到props
     for (propName in config) {
       if (
         hasOwnProperty.call(config, propName) &&
@@ -200,8 +218,10 @@ export function createElement(type, config, children) {
     }
   }
 
-  // Children can be more than one argument, and those are transferred onto
-  // the newly allocated props object.
+  // 获取所有的子节点
+  // 需要记住的是，若只有一个子节点，则设置props.children为这个字节点也就是ReactElement对象，
+  // 若为多个子节点，则设置为props.children为ReactElement对象组成的数组
+  // 这个区分很重要，在渲染阶段通过判断是对象还是数组，执行不同的操作
   const childrenLength = arguments.length - 2;
   if (childrenLength === 1) {
     props.children = children;
@@ -218,7 +238,9 @@ export function createElement(type, config, children) {
     props.children = childArray;
   }
 
-  // Resolve default props
+  // 若节点有defaultProps，表示当前节点为class或function组件
+  // 则将defaultProps中的属性合并到props中
+  // 例如例子中的App组件可能会有defaultProps的值
   if (type && type.defaultProps) {
     const defaultProps = type.defaultProps;
     for (propName in defaultProps) {
@@ -241,6 +263,7 @@ export function createElement(type, config, children) {
       }
     }
   }
+  // 为节点创建ReactElement
   return ReactElement(
     type,
     key,

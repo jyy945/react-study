@@ -525,6 +525,7 @@ function updateClassComponent(
   );
 }
 
+// 结束class组件渲染阶段
 function finishClassComponent(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -538,6 +539,7 @@ function finishClassComponent(
 
   const didCaptureError = (workInProgress.effectTag & DidCapture) !== NoEffect;
 
+  // 若不需要更新且没有错误，则直接跳过组件的更新
   if (!shouldUpdate && !didCaptureError) {
     // Context providers should defer to sCU for rendering
     if (hasContext) {
@@ -551,7 +553,7 @@ function finishClassComponent(
     );
   }
 
-  const instance = workInProgress.stateNode;
+  const instance = workInProgress.stateNode; // 获取组件对象的实例
 
   // Rerender
   ReactCurrentOwner.current = workInProgress;
@@ -589,6 +591,7 @@ function finishClassComponent(
 
   // React DevTools reads this flag.
   workInProgress.effectTag |= PerformedWork;
+  // 不是第一次渲染并且有错误
   if (current !== null && didCaptureError) {
     // If we're recovering from an error, reconcile without reusing any of
     // the existing children. Conceptually, the normal children and the children
@@ -636,6 +639,7 @@ function pushHostRootContext(workInProgress) {
   pushHostContainer(workInProgress, root.containerInfo);
 }
 
+// 更新hostRoot
 function updateHostRoot(current, workInProgress, renderExpirationTime) {
   pushHostRootContext(workInProgress);
   const updateQueue = workInProgress.updateQueue;
@@ -926,6 +930,7 @@ function mountIncompleteClassComponent(
   );
 }
 
+// 不确定类型的组件的更新
 function mountIndeterminateComponent(
   _current,
   workInProgress,
@@ -982,10 +987,11 @@ function mountIndeterminateComponent(
   // React DevTools reads this flag.
   workInProgress.effectTag |= PerformedWork;
 
+  // 是一个class组件，则使用更新class组件的代码
   if (
     typeof value === 'object' &&
     value !== null &&
-    typeof value.render === 'function' &&
+    typeof value.render === 'function' && // 此处认为只要存在render方法，就是class组件
     value.$$typeof === undefined
   ) {
     // Proceed under the assumption that this is a class instance
@@ -1025,7 +1031,7 @@ function mountIndeterminateComponent(
       hasContext,
       renderExpirationTime,
     );
-  } else {
+  } else {  // 是一个function组件
     // Proceed under the assumption that this is a function component
     workInProgress.tag = FunctionComponent;
     if (__DEV__) {
