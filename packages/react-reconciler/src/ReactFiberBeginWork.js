@@ -412,7 +412,7 @@ function updateFunctionComponent(
     nextChildren = Component(nextProps, context); // 执行function组件，返回的为最新的子组件
   }
 
-  // React DevTools reads this flag.
+  // 设置wip的effectTag，此时设置的值仅用于react devtool
   workInProgress.effectTag |= PerformedWork;
   // 开始调和子节点
   // 将当前节点的新旧子节点进行对比处理，将处理后的新子节点放入当前节点的子节点
@@ -659,10 +659,10 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
     null,
     renderExpirationTime,
   );
-  const nextState = workInProgress.memoizedState;
+  const nextState = workInProgress.memoizedState; // 此时计算后的新的state为{element: 第一个子节点的ReactElement对象}
   // Caution: React DevTools currently depends on this property
   // being called "element".
-  const nextChildren = nextState.element;
+  const nextChildren = nextState.element;   // 获取第一个子节点的reactElement对象
   if (nextChildren === prevChildren) {
     // If the state is the same as before, that's a bailout because we had
     // no work that expires at this time.

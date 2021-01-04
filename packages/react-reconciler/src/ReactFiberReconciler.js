@@ -110,7 +110,7 @@ function getContextForSubtree(
 // 创建一个update，然后将update放入update queue中
 function scheduleRootUpdate(
   current: Fiber, // rootFiber
-  element: ReactNodeList,
+  element: ReactNodeList, // rootFiber的第一个节点的reactElement对象
   expirationTime: ExpirationTime,
   callback: ?Function,
 ) {

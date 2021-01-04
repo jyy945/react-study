@@ -188,6 +188,7 @@ function cloneUpdateQueue<State>(
   return queue;
 }
 
+// 创建update对象
 export function createUpdate(expirationTime: ExpirationTime): Update<*> {
   return {
     expirationTime: expirationTime,
@@ -196,7 +197,7 @@ export function createUpdate(expirationTime: ExpirationTime): Update<*> {
     payload: null,
     callback: null,
 
-    next: null,
+    next: null, // updateQueue是一个单向链表，需要update有指向下一个update的属性
     nextEffect: null,
   };
 }

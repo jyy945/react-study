@@ -892,6 +892,7 @@ function resetChildExpirationTime(
   workInProgress.childExpirationTime = newChildExpirationTime;
 }
 
+// 当前的wip已经是子节点
 function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   // Attempt to complete the current unit of work, then move to the
   // next sibling. If there are no more siblings, return to the
@@ -906,8 +907,8 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
       ReactCurrentFiber.setCurrentFiber(workInProgress);
     }
 
-    const returnFiber = workInProgress.return;
-    const siblingFiber = workInProgress.sibling;
+    const returnFiber = workInProgress.return;  // 父节点
+    const siblingFiber = workInProgress.sibling;  // 下一个兄弟节点
 
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
       // This fiber completed.
