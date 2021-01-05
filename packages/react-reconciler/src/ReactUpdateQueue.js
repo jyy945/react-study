@@ -420,6 +420,8 @@ function getStateFromUpdate<State>(
 }
 
 // 处理更新队列，对更新队列进行遍历，使用update对state进行计算生成新的state
+// 在这个过程中，若update的优先级低，则不会执行update的更新；否则就会执行update的更新
+// 最后所有执行更新的update都会从updateQueue中删除，留下未执行的update
 export function processUpdateQueue<State>(
   workInProgress: Fiber,
   queue: UpdateQueue<State>,
@@ -455,6 +457,7 @@ export function processUpdateQueue<State>(
       }
       // Since this update will remain in the list, update the remaining
       // expiration time.
+      // 因为这个update还需要保存在更新列表中，所有需要更新过期时间
       if (
         newExpirationTime === NoWork ||
         newExpirationTime > updateExpirationTime
@@ -473,7 +476,7 @@ export function processUpdateQueue<State>(
       );
       const callback = update.callback;
       if (callback !== null) {
-        workInProgress.effectTag |= Callback;
+        workInProgress.effectTag |= Callback; // 添加callback副作用
         // Set this to null, in case it was mutated during an aborted render.
         update.nextEffect = null;
         if (queue.lastEffect === null) {
@@ -540,6 +543,8 @@ export function processUpdateQueue<State>(
     update = update.next;
   }
 
+  // 若所有的update都已经更新完毕，则将queue置为空。
+  // 若有的update的优先级低导致没有更新，则queue不会置空
   if (newFirstUpdate === null) {
     queue.lastUpdate = null;
   }
@@ -555,7 +560,7 @@ export function processUpdateQueue<State>(
   }
 
   queue.baseState = newBaseState;
-  queue.firstUpdate = newFirstUpdate;
+  queue.firstUpdate = newFirstUpdate; // 若有些updat因优先级低没有更新则不删除
   queue.firstCapturedUpdate = newFirstCapturedUpdate;
 
   // Set the remaining expiration time to be whatever is remaining in the queue.

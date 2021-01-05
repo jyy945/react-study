@@ -660,8 +660,6 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
     renderExpirationTime,
   );
   const nextState = workInProgress.memoizedState; // 此时计算后的新的state为{element: 第一个子节点的ReactElement对象}
-  // Caution: React DevTools currently depends on this property
-  // being called "element".
   const nextChildren = nextState.element;   // 获取第一个子节点的reactElement对象
   if (nextChildren === prevChildren) {
     // If the state is the same as before, that's a bailout because we had
@@ -1533,7 +1531,9 @@ function beginWork(
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
-  // 只有第一次渲染的第一个节点是有current值
+  // 因为在performUnitOfWork的循环中，有可能的一种情况就是组件在第一次渲染的时候，返回了的子节点的wip， 但没有设置子节点的fiber。
+  // 因此当这个节点是rootFiber时，必然有current。另外就是当这个节点不是第一次渲染，已经创建了对应的fiber，则有current。
+  // 若这个节点为新建的，则不会有current
   if (current !== null) {
     const oldProps = current.memoizedProps; // 上一次的props值
     const newProps = workInProgress.pendingProps; // 本次更新的最新的props值
@@ -1546,7 +1546,7 @@ function beginWork(
         updateExpirationTime > renderExpirationTime)  // 有更新，但是优先级不高。renderExpirationTime为当前对应的fiberRoot的expirationTime
     ) {
       switch (workInProgress.tag) {
-        case HostRoot:
+        case HostRoot:  // 当前节点为fiberRoot
           pushHostRootContext(workInProgress);
           resetHydrationState();
           break;
@@ -1683,8 +1683,10 @@ function beginWork(
         renderExpirationTime,
       );
     }
+    // 为fiberRoot节点
     case HostRoot:
       return updateHostRoot(current, workInProgress, renderExpirationTime);
+    // 为html原生节点
     case HostComponent:
       return updateHostComponent(current, workInProgress, renderExpirationTime);
     case HostText:

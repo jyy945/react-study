@@ -1104,13 +1104,15 @@ function ChildReconciler(shouldTrackSideEffects) {
   // 对类型为Element的单个节点进行调和
   function reconcileSingleElement(
     returnFiber: Fiber, // 当前的wip
-    currentFirstChild: Fiber | null,  // 当前的子fiber
-    element: ReactElement,  // 子节点
+    currentFirstChild: Fiber | null,  // 当前的旧子fiber
+    element: ReactElement,  // 新子节点reactElement对象
     expirationTime: ExpirationTime,
   ): Fiber {
     const key = element.key;
     let child = currentFirstChild;
-    // 对当前节点的所有字节点进行遍历，一次对比key，查找之前的子节点中是否有可复用的节点
+    // 对当前节点的所有字节点进行遍历，一次对比key，查找之前的子节点中是否有可复用的节点，
+    // 若有则更新信息则删除其他节点fiber，直接返回这个fiber
+    // 若没有则删除所有的节点
     while (child !== null) {
       // 若key相同，则表示之前的子节点中有可复用的节点
       if (child.key === key) {
@@ -1146,6 +1148,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       child = child.sibling;
     }
 
+    // 原旧子节点当中没有能够复用的fiber，需要创建
     // 针对节点不同的类型，创建对应的fiber对象
     if (element.type === REACT_FRAGMENT_TYPE) {
       const created = createFiberFromFragment(
@@ -1215,8 +1218,8 @@ function ChildReconciler(shouldTrackSideEffects) {
   // 调和子节点
   function reconcileChildFibers(
     returnFiber: Fiber, // 当前的wip
-    currentFirstChild: Fiber | null, // 当前节点的第一个子fiber
-    newChild: any,  // 子节点
+    currentFirstChild: Fiber | null, // 当前节点的第一个旧子节点
+    newChild: any,  // 新的子节点
     expirationTime: ExpirationTime,
   ): Fiber | null {
     // 查看当前组件的子节点是否为fragment组件

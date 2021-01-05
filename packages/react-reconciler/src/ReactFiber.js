@@ -280,6 +280,7 @@ const createFiber = function(
   return new FiberNode(tag, pendingProps, key, mode);
 };
 
+// 检查是否为class component
 function shouldConstruct(Component: Function) {
   const prototype = Component.prototype;
   return !!(prototype && prototype.isReactComponent);
@@ -396,6 +397,7 @@ export function createHostRootFiber(isConcurrent: boolean): Fiber {
   return createFiber(HostRoot, null, null, mode);
 }
 
+// 通过reactElement的type和props创建fiber
 export function createFiberFromTypeAndProps(
   type: any, // React$ElementType
   key: null | string,
@@ -410,10 +412,11 @@ export function createFiberFromTypeAndProps(
   // The resolved type is set if we know what the final type will be. I.e. it's not lazy.
   let resolvedType = type;
   if (typeof type === 'function') {
+    // 检查是否未class component
     if (shouldConstruct(type)) {
       fiberTag = ClassComponent;
     }
-  } else if (typeof type === 'string') {
+  } else if (typeof type === 'string') {  // html原生的标签
     fiberTag = HostComponent;
   } else {
     getTag: switch (type) {
@@ -502,6 +505,7 @@ export function createFiberFromTypeAndProps(
   return fiber;
 }
 
+// 通过reactElement对象创建fiber
 export function createFiberFromElement(
   element: ReactElement,
   mode: TypeOfMode,

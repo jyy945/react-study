@@ -133,8 +133,7 @@ function scheduleRootUpdate(
   }
 
   const update = createUpdate(expirationTime); // 创建update
-  // Caution: React DevTools currently depends on this property
-  // being called "element".
+  // 此时的element为rootFiber的第一个子节点的reactElement对象
   update.payload = {element};
 
   // 若存在callback则赋值为update.callback
@@ -149,7 +148,7 @@ function scheduleRootUpdate(
     );
     update.callback = callback;
   }
-  // // 将更新放入更新队列
+  // 为rootFiber创建updateQueue并将更新放入更新队列
   enqueueUpdate(current, update);
 
   // 开始对任务进行调度

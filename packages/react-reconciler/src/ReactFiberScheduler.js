@@ -1137,7 +1137,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 // 若为可打断的任务，则在时间片的时间范围内对fiber树进行遍历执行，直到时间截至。
 function workLoop(isYieldy) {
   if (!isYieldy) {  // 若不可被打断，则一直执行直到结束
-    while (nextUnitOfWork !== null) {
+    while (nextUnitOfWork !== null) { // nextUnitOfWork为当前节点的wip对象
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   } else { // 若可以被打断，则根据任务的
@@ -2297,10 +2297,12 @@ function performWorkOnRoot(
   isRendering = true; // 设置为rendering状态，表示进入执行阶段
 
   if (deadline === null || isExpired) { // 同步或者是已经过期的任务，需要立即执行
+    // 只有在完成了渲染阶段，但没有完成提交阶段finishedWork才会有值。
+    // finishedWork不为空的情况为，执行完render阶段后，发现时间片不已经不够时间去继续执行commit阶段，将会被挂起，将会对finishedWork赋值
     let finishedWork = root.finishedWork;
     if (finishedWork !== null) {  // 当前的fiberRoot已经render完成，直接提交
       completeRoot(root, finishedWork, expirationTime);
-    } else {// 当前的fiberRoot未完成
+    } else {// 当前的fiberRoot未执行到commit阶段
       root.finishedWork = null;
       // 若当前的fiberRoot之前被取消执行，那么就清理这个timeout，因为需要重新render这个fiberRoot
       const timeoutHandle = root.timeoutHandle;
