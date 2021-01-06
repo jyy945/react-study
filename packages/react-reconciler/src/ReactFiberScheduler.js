@@ -894,9 +894,7 @@ function resetChildExpirationTime(
 
 // 当前的wip已经是子节点
 function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
-  // Attempt to complete the current unit of work, then move to the
-  // next sibling. If there are no more siblings, return to the
-  // parent fiber.
+  // 完成当前的节点的渲染，然后执行他的下一个兄弟节点，若没有兄弟节点，则返回其父节点
   while (true) {
     // The current, flushed, state of this fiber is the alternate.
     // Ideally nothing should rely on this, but relying on it here
@@ -910,6 +908,7 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
     const returnFiber = workInProgress.return;  // 父节点
     const siblingFiber = workInProgress.sibling;  // 下一个兄弟节点
 
+    // 该节点已经完成了节点的渲染更新
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
       // This fiber completed.
       if (enableProfilerTimer) {

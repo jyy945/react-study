@@ -162,6 +162,8 @@ export function resetAfterCommit(containerInfo: Container): void {
   eventsEnabled = null;
 }
 
+// 为节点为html原生标签的节点创建dom元素
+// 并将fiber和props赋值给dom对象的属性
 export function createInstance(
   type: string,
   props: Props,
@@ -189,13 +191,16 @@ export function createInstance(
   } else {
     parentNamespace = ((hostContext: any): HostContextProd);
   }
+  // 创建fiber对应的dom节点
   const domElement: Instance = createElement(
     type,
     props,
     rootContainerInstance,
     parentNamespace,
   );
+  // 将wip对象赋值给dom的一个属性
   precacheFiberNode(internalInstanceHandle, domElement);
+  // 将props赋值给dom的一个属性
   updateFiberProps(domElement, props);
   return domElement;
 }
@@ -250,6 +255,7 @@ export function prepareUpdate(
   );
 }
 
+//
 export function shouldSetTextContent(type: string, props: Props): boolean {
   return (
     type === 'textarea' ||

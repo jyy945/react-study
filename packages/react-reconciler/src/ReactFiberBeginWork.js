@@ -723,8 +723,10 @@ function updateHostComponent(current, workInProgress, renderExpirationTime) {
   const prevProps = current !== null ? current.memoizedProps : null;
 
   let nextChildren = nextProps.children;
+  // 查看子节点是否为纯字符串或当前子节点是否为textarea、option等
   const isDirectTextChild = shouldSetTextContent(type, nextProps);
-
+  // 若子节点时纯字符串或当前子节点是否为textarea、option等
+  // 则子节点不需要创建fiber对象。因为当前节点就是叶子节点，比如span、p等
   if (isDirectTextChild) {
     // We special case a direct text child of a host node. This is a common
     // case. We won't handle it as a reified child. We will instead handle

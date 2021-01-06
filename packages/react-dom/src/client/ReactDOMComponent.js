@@ -232,6 +232,7 @@ function ensureListeningTo(rootContainerElement, registrationName) {
   listenTo(registrationName, doc);
 }
 
+// 获取document对象
 function getOwnerDocumentFromRootContainer(
   rootContainerElement: Element | Document,
 ): Document {
@@ -350,6 +351,7 @@ function updateDOMProperties(
   }
 }
 
+// 创建dom元素
 export function createElement(
   type: string,
   props: Object,
@@ -358,8 +360,7 @@ export function createElement(
 ): Element {
   let isCustomComponentTag;
 
-  // We create tags in the namespace of their parent container, except HTML
-  // tags get no namespace.
+  // 获取document对象
   const ownerDocument: Document = getOwnerDocumentFromRootContainer(
     rootContainerElement,
   );
@@ -382,16 +383,13 @@ export function createElement(
       );
     }
 
+    // 若为script标签，则首先在外层创建div标签，防止script执行，然后获取script标签
     if (type === 'script') {
-      // Create the script via .innerHTML so its "parser-inserted" flag is
-      // set to true and it does not execute
       const div = ownerDocument.createElement('div');
-      div.innerHTML = '<script><' + '/script>'; // eslint-disable-line
-      // This is guaranteed to yield a script element.
+      div.innerHTML = '<script><' + '/script>';
       const firstChild = ((div.firstChild: any): HTMLScriptElement);
       domElement = div.removeChild(firstChild);
-    } else if (typeof props.is === 'string') {
-      // $FlowIssue `createElement` should be updated for Web Components
+    } else if (typeof props.is === 'string') {  // 创建文本Dom节点
       domElement = ownerDocument.createElement(type, {is: props.is});
     } else {
       // Separate else branch instead of using `props.is || undefined` above because of a Firefox bug.

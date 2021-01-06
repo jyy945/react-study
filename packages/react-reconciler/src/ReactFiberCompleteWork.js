@@ -93,14 +93,13 @@ let updateHostText;
 if (supportsMutation) {
   // Mutation mode
 
+  // 为节点创建其所有的子节点dom
   appendAllChildren = function(
     parent: Instance,
     workInProgress: Fiber,
     needsVisibilityToggle: boolean,
     isHidden: boolean,
   ) {
-    // We only have the top Fiber that was created but we need recurse down its
-    // children to find all the terminal nodes.
     let node = workInProgress.child;
     while (node !== null) {
       if (node.tag === HostComponent || node.tag === HostText) {
@@ -570,10 +569,12 @@ function completeWork(
       updateHostContainer(workInProgress);
       break;
     }
+    // html原生标签
     case HostComponent: {
       popHostContext(workInProgress);
       const rootContainerInstance = getRootHostContainer();
       const type = workInProgress.type;
+      // 该节点不是第一次渲染
       if (current !== null && workInProgress.stateNode != null) {
         updateHostComponent(
           current,
@@ -586,7 +587,9 @@ function completeWork(
         if (current.ref !== workInProgress.ref) {
           markRef(workInProgress);
         }
-      } else {
+      }
+      // 节点是第一次渲染
+      else {
         if (!newProps) {
           invariant(
             workInProgress.stateNode !== null,
@@ -618,6 +621,7 @@ function completeWork(
             markUpdate(workInProgress);
           }
         } else {
+          // 通过wip创建dom元素
           let instance = createInstance(
             type,
             newProps,
@@ -626,6 +630,7 @@ function completeWork(
             workInProgress,
           );
 
+          // 创建该节点下的所有的html Dom元素并添加到其中
           appendAllChildren(instance, workInProgress, false, false);
 
           // Certain renderers require commit-time effects for initial mount.

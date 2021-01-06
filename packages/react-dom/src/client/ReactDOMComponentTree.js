@@ -14,6 +14,7 @@ const randomKey = Math.random()
 const internalInstanceKey = '__reactInternalInstance$' + randomKey;
 const internalEventHandlersKey = '__reactEventHandlers$' + randomKey;
 
+// 将wip对象赋值给dom的一个属性
 export function precacheFiberNode(hostInst, node) {
   node[internalInstanceKey] = hostInst;
 }
@@ -82,6 +83,7 @@ export function getFiberCurrentPropsFromNode(node) {
   return node[internalEventHandlersKey] || null;
 }
 
+// 将props赋值给dom的一个属性
 export function updateFiberProps(node, props) {
   node[internalEventHandlersKey] = props;
 }

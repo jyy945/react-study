@@ -1073,7 +1073,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     return resultingFirstChild;
   }
 
-  // 调和文本节点
+  // 调和html原生标签节点
   function reconcileSingleTextNode(
     returnFiber: Fiber, // 当前的wip
     currentFirstChild: Fiber | null,  // 当前节点的第一个子fiber
@@ -1258,7 +1258,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    // 子节点为文本节点
+    // 子节点为html原生标签
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(
