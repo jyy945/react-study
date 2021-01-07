@@ -44,25 +44,21 @@ export function createDangerousStringForStyles(styles) {
   }
 }
 
-/**
- * Sets the value for multiple styles on a node.  If a value is specified as
- * '' (empty string), the corresponding style property will be unset.
- *
- * @param {DOMElement} node
- * @param {object} styles
- */
+// 设置style的原生属性和自定义属性，并将特殊样式的数字添加px单位
 export function setValueForStyles(node, styles) {
   const style = node.style;
   for (let styleName in styles) {
     if (!styles.hasOwnProperty(styleName)) {
       continue;
     }
+    // 若以”--“开头则表示为自定义的css属性，需要使用setProperty才能设置
     const isCustomProperty = styleName.indexOf('--') === 0;
     if (__DEV__) {
       if (!isCustomProperty) {
         warnValidStyle(styleName, styles[styleName]);
       }
     }
+    // 处理style中为数字的值，将会将特定的值转为px单位
     const styleValue = dangerousStyleValue(
       styleName,
       styles[styleName],

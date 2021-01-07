@@ -256,6 +256,7 @@ export function trapClickOnNonInteractiveElement(node: HTMLElement) {
   node.onclick = noop;
 }
 
+// 为dom设置属性，若为叶子节点，则设置props.children为其文本
 function setInitialDOMProperties(
   tag: string,
   domElement: Element,
@@ -276,19 +277,20 @@ function setInitialDOMProperties(
           Object.freeze(nextProp);
         }
       }
-      // Relies on `updateStylesByID` not mutating `styleUpdates`.
+      // 设置style的原生属性和自定义属性，并将特殊样式的数字添加px单位
       CSSPropertyOperations.setValueForStyles(domElement, nextProp);
-    } else if (propKey === DANGEROUSLY_SET_INNER_HTML) {
+    }
+    // 查看是否为dangerouslySetInnerHTML属性，这个属性会将html代码原样输出
+    // 例如：<div dangerouslySetInnerHTML={{__html:"<a>dfdf</a></br>}}></div>
+    // 其中</br>会直接换行，如果不用这个属性，将只会输出</br>
+    else if (propKey === DANGEROUSLY_SET_INNER_HTML) {
       const nextHtml = nextProp ? nextProp[HTML] : undefined;
       if (nextHtml != null) {
         setInnerHTML(domElement, nextHtml);
       }
-    } else if (propKey === CHILDREN) {
+    } else if (propKey === CHILDREN) {  // props包含children，说明这个节点为叶子节点，其中有字符串，例如<span>123</span>，123为children的值
+      // 为叶子节点设置内部的字符串
       if (typeof nextProp === 'string') {
-        // Avoid setting initial textContent when the text is empty. In IE11 setting
-        // textContent on a <textarea> will cause the placeholder to not
-        // show within the <textarea> until it has been focused and blurred again.
-        // https://github.com/facebook/react/issues/6731#issuecomment-254874553
         const canSetTextContent = tag !== 'textarea' || nextProp !== '';
         if (canSetTextContent) {
           setTextContent(domElement, nextProp);
@@ -441,7 +443,8 @@ export function createTextNode(
     text,
   );
 }
-
+// 为dom设置属性，若为叶子节点，则设置props.children为其文本
+// 同时为dom添加监听事件并校验属性值
 export function setInitialProperties(
   domElement: Element,
   tag: string,
@@ -535,7 +538,7 @@ export function setInitialProperties(
   }
 
   assertValidProps(tag, props);
-
+  // 为dom设置属性，若为叶子节点，则设置props.children为其文本
   setInitialDOMProperties(
     tag,
     domElement,

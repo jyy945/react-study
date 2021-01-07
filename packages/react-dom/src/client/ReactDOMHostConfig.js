@@ -81,6 +81,7 @@ const STYLE = 'style';
 let eventsEnabled: ?boolean = null;
 let selectionInformation: ?mixed = null;
 
+// 判断是否为自动对焦
 function shouldAutoFocusHostComponent(type: string, props: Props): boolean {
   switch (type) {
     case 'button':
@@ -212,6 +213,7 @@ export function appendInitialChild(
   parentInstance.appendChild(child);
 }
 
+// 完成初始化子dom元素
 export function finalizeInitialChildren(
   domElement: Instance,
   type: string,
@@ -219,6 +221,7 @@ export function finalizeInitialChildren(
   rootContainerInstance: Container,
   hostContext: HostContext,
 ): boolean {
+  // 为dom设置属性
   setInitialProperties(domElement, type, props, rootContainerInstance);
   return shouldAutoFocusHostComponent(type, props);
 }

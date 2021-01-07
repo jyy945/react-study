@@ -57,7 +57,7 @@ import {
   createContainerChildSet,
   appendChildToContainerChildSet,
   finalizeContainerChildren,
-} from './ReactFiberHostConfig';
+} from 'react-dom/src/client/ReactDOMHostConfig';
 import {
   getRootHostContainer,
   popHostContext,
@@ -85,16 +85,8 @@ function markUpdate(workInProgress: Fiber) {
 function markRef(workInProgress: Fiber) {
   workInProgress.effectTag |= Ref;
 }
-
-let appendAllChildren;
-let updateHostContainer;
-let updateHostComponent;
-let updateHostText;
-if (supportsMutation) {
-  // Mutation mode
-
   // 为节点创建其所有的子节点dom
-  appendAllChildren = function(
+  let appendAllChildren = function(
     parent: Instance,
     workInProgress: Fiber,
     needsVisibilityToggle: boolean,
@@ -127,10 +119,10 @@ if (supportsMutation) {
     }
   };
 
-  updateHostContainer = function(workInProgress: Fiber) {
+  let updateHostContainer = function(workInProgress: Fiber) {
     // Noop
   };
-  updateHostComponent = function(
+  let updateHostComponent = function(
     current: Fiber,
     workInProgress: Fiber,
     type: Type,
@@ -171,7 +163,7 @@ if (supportsMutation) {
       markUpdate(workInProgress);
     }
   };
-  updateHostText = function(
+  let updateHostText = function(
     current: Fiber,
     workInProgress: Fiber,
     oldText: string,
@@ -182,351 +174,6 @@ if (supportsMutation) {
       markUpdate(workInProgress);
     }
   };
-} else if (supportsPersistence) {
-  // Persistent host tree mode
-
-  appendAllChildren = function(
-    parent: Instance,
-    workInProgress: Fiber,
-    needsVisibilityToggle: boolean,
-    isHidden: boolean,
-  ) {
-    // We only have the top Fiber that was created but we need recurse down its
-    // children to find all the terminal nodes.
-    let node = workInProgress.child;
-    while (node !== null) {
-      // eslint-disable-next-line no-labels
-      branches: if (node.tag === HostComponent) {
-        let instance = node.stateNode;
-        if (needsVisibilityToggle) {
-          const props = node.memoizedProps;
-          const type = node.type;
-          if (isHidden) {
-            // This child is inside a timed out tree. Hide it.
-            instance = cloneHiddenInstance(instance, type, props, node);
-          } else {
-            // This child was previously inside a timed out tree. If it was not
-            // updated during this render, it may need to be unhidden. Clone
-            // again to be sure.
-            instance = cloneUnhiddenInstance(instance, type, props, node);
-          }
-          node.stateNode = instance;
-        }
-        appendInitialChild(parent, instance);
-      } else if (node.tag === HostText) {
-        let instance = node.stateNode;
-        if (needsVisibilityToggle) {
-          const text = node.memoizedProps;
-          const rootContainerInstance = getRootHostContainer();
-          const currentHostContext = getHostContext();
-          if (isHidden) {
-            instance = createHiddenTextInstance(
-              text,
-              rootContainerInstance,
-              currentHostContext,
-              workInProgress,
-            );
-          } else {
-            instance = createTextInstance(
-              text,
-              rootContainerInstance,
-              currentHostContext,
-              workInProgress,
-            );
-          }
-          node.stateNode = instance;
-        }
-        appendInitialChild(parent, instance);
-      } else if (node.tag === HostPortal) {
-        // If we have a portal child, then we don't want to traverse
-        // down its children. Instead, we'll get insertions from each child in
-        // the portal directly.
-      } else if (node.tag === SuspenseComponent) {
-        const current = node.alternate;
-        if (current !== null) {
-          const oldState: SuspenseState = current.memoizedState;
-          const newState: SuspenseState = node.memoizedState;
-          const oldIsHidden = oldState !== null && oldState.didTimeout;
-          const newIsHidden = newState !== null && newState.didTimeout;
-          if (oldIsHidden !== newIsHidden) {
-            // The placeholder either just timed out or switched back to the normal
-            // children after having previously timed out. Toggle the visibility of
-            // the direct host children.
-            const primaryChildParent = newIsHidden ? node.child : node;
-            if (primaryChildParent !== null) {
-              appendAllChildren(parent, primaryChildParent, true, newIsHidden);
-            }
-            // eslint-disable-next-line no-labels
-            break branches;
-          }
-        }
-        if (node.child !== null) {
-          // Continue traversing like normal
-          node.child.return = node;
-          node = node.child;
-          continue;
-        }
-      } else if (node.child !== null) {
-        node.child.return = node;
-        node = node.child;
-        continue;
-      }
-      // $FlowFixMe This is correct but Flow is confused by the labeled break.
-      node = (node: Fiber);
-      if (node === workInProgress) {
-        return;
-      }
-      while (node.sibling === null) {
-        if (node.return === null || node.return === workInProgress) {
-          return;
-        }
-        node = node.return;
-      }
-      node.sibling.return = node.return;
-      node = node.sibling;
-    }
-  };
-
-  // An unfortunate fork of appendAllChildren because we have two different parent types.
-  const appendAllChildrenToContainer = function(
-    containerChildSet: ChildSet,
-    workInProgress: Fiber,
-    needsVisibilityToggle: boolean,
-    isHidden: boolean,
-  ) {
-    // We only have the top Fiber that was created but we need recurse down its
-    // children to find all the terminal nodes.
-    let node = workInProgress.child;
-    while (node !== null) {
-      // eslint-disable-next-line no-labels
-      branches: if (node.tag === HostComponent) {
-        let instance = node.stateNode;
-        if (needsVisibilityToggle) {
-          const props = node.memoizedProps;
-          const type = node.type;
-          if (isHidden) {
-            // This child is inside a timed out tree. Hide it.
-            instance = cloneHiddenInstance(instance, type, props, node);
-          } else {
-            // This child was previously inside a timed out tree. If it was not
-            // updated during this render, it may need to be unhidden. Clone
-            // again to be sure.
-            instance = cloneUnhiddenInstance(instance, type, props, node);
-          }
-          node.stateNode = instance;
-        }
-        appendChildToContainerChildSet(containerChildSet, instance);
-      } else if (node.tag === HostText) {
-        let instance = node.stateNode;
-        if (needsVisibilityToggle) {
-          const text = node.memoizedProps;
-          const rootContainerInstance = getRootHostContainer();
-          const currentHostContext = getHostContext();
-          if (isHidden) {
-            instance = createHiddenTextInstance(
-              text,
-              rootContainerInstance,
-              currentHostContext,
-              workInProgress,
-            );
-          } else {
-            instance = createTextInstance(
-              text,
-              rootContainerInstance,
-              currentHostContext,
-              workInProgress,
-            );
-          }
-          node.stateNode = instance;
-        }
-        appendChildToContainerChildSet(containerChildSet, instance);
-      } else if (node.tag === HostPortal) {
-        // If we have a portal child, then we don't want to traverse
-        // down its children. Instead, we'll get insertions from each child in
-        // the portal directly.
-      } else if (node.tag === SuspenseComponent) {
-        const current = node.alternate;
-        if (current !== null) {
-          const oldState: SuspenseState = current.memoizedState;
-          const newState: SuspenseState = node.memoizedState;
-          const oldIsHidden = oldState !== null && oldState.didTimeout;
-          const newIsHidden = newState !== null && newState.didTimeout;
-          if (oldIsHidden !== newIsHidden) {
-            // The placeholder either just timed out or switched back to the normal
-            // children after having previously timed out. Toggle the visibility of
-            // the direct host children.
-            const primaryChildParent = newIsHidden ? node.child : node;
-            if (primaryChildParent !== null) {
-              appendAllChildrenToContainer(
-                containerChildSet,
-                primaryChildParent,
-                true,
-                newIsHidden,
-              );
-            }
-            // eslint-disable-next-line no-labels
-            break branches;
-          }
-        }
-        if (node.child !== null) {
-          // Continue traversing like normal
-          node.child.return = node;
-          node = node.child;
-          continue;
-        }
-      } else if (node.child !== null) {
-        node.child.return = node;
-        node = node.child;
-        continue;
-      }
-      // $FlowFixMe This is correct but Flow is confused by the labeled break.
-      node = (node: Fiber);
-      if (node === workInProgress) {
-        return;
-      }
-      while (node.sibling === null) {
-        if (node.return === null || node.return === workInProgress) {
-          return;
-        }
-        node = node.return;
-      }
-      node.sibling.return = node.return;
-      node = node.sibling;
-    }
-  };
-  updateHostContainer = function(workInProgress: Fiber) {
-    const portalOrRoot: {
-      containerInfo: Container,
-      pendingChildren: ChildSet,
-    } =
-      workInProgress.stateNode;
-    const childrenUnchanged = workInProgress.firstEffect === null;
-    if (childrenUnchanged) {
-      // No changes, just reuse the existing instance.
-    } else {
-      const container = portalOrRoot.containerInfo;
-      let newChildSet = createContainerChildSet(container);
-      // If children might have changed, we have to add them all to the set.
-      appendAllChildrenToContainer(newChildSet, workInProgress, false, false);
-      portalOrRoot.pendingChildren = newChildSet;
-      // Schedule an update on the container to swap out the container.
-      markUpdate(workInProgress);
-      finalizeContainerChildren(container, newChildSet);
-    }
-  };
-  updateHostComponent = function(
-    current: Fiber,
-    workInProgress: Fiber,
-    type: Type,
-    newProps: Props,
-    rootContainerInstance: Container,
-  ) {
-    const currentInstance = current.stateNode;
-    const oldProps = current.memoizedProps;
-    // If there are no effects associated with this node, then none of our children had any updates.
-    // This guarantees that we can reuse all of them.
-    const childrenUnchanged = workInProgress.firstEffect === null;
-    if (childrenUnchanged && oldProps === newProps) {
-      // No changes, just reuse the existing instance.
-      // Note that this might release a previous clone.
-      workInProgress.stateNode = currentInstance;
-      return;
-    }
-    const recyclableInstance: Instance = workInProgress.stateNode;
-    const currentHostContext = getHostContext();
-    let updatePayload = null;
-    if (oldProps !== newProps) {
-      updatePayload = prepareUpdate(
-        recyclableInstance,
-        type,
-        oldProps,
-        newProps,
-        rootContainerInstance,
-        currentHostContext,
-      );
-    }
-    if (childrenUnchanged && updatePayload === null) {
-      // No changes, just reuse the existing instance.
-      // Note that this might release a previous clone.
-      workInProgress.stateNode = currentInstance;
-      return;
-    }
-    let newInstance = cloneInstance(
-      currentInstance,
-      updatePayload,
-      type,
-      oldProps,
-      newProps,
-      workInProgress,
-      childrenUnchanged,
-      recyclableInstance,
-    );
-    if (
-      finalizeInitialChildren(
-        newInstance,
-        type,
-        newProps,
-        rootContainerInstance,
-        currentHostContext,
-      )
-    ) {
-      markUpdate(workInProgress);
-    }
-    workInProgress.stateNode = newInstance;
-    if (childrenUnchanged) {
-      // If there are no other effects in this tree, we need to flag this node as having one.
-      // Even though we're not going to use it for anything.
-      // Otherwise parents won't know that there are new children to propagate upwards.
-      markUpdate(workInProgress);
-    } else {
-      // If children might have changed, we have to add them all to the set.
-      appendAllChildren(newInstance, workInProgress, false, false);
-    }
-  };
-  updateHostText = function(
-    current: Fiber,
-    workInProgress: Fiber,
-    oldText: string,
-    newText: string,
-  ) {
-    if (oldText !== newText) {
-      // If the text content differs, we'll create a new text instance for it.
-      const rootContainerInstance = getRootHostContainer();
-      const currentHostContext = getHostContext();
-      workInProgress.stateNode = createTextInstance(
-        newText,
-        rootContainerInstance,
-        currentHostContext,
-        workInProgress,
-      );
-      // We'll have to mark it as having an effect, even though we won't use the effect for anything.
-      // This lets the parents know that at least one of their children has changed.
-      markUpdate(workInProgress);
-    }
-  };
-} else {
-  // No host operations
-  updateHostContainer = function(workInProgress: Fiber) {
-    // Noop
-  };
-  updateHostComponent = function(
-    current: Fiber,
-    workInProgress: Fiber,
-    type: Type,
-    newProps: Props,
-    rootContainerInstance: Container,
-  ) {
-    // Noop
-  };
-  updateHostText = function(
-    current: Fiber,
-    workInProgress: Fiber,
-    oldText: string,
-    newText: string,
-  ) {
-    // Noop
-  };
-}
 
 function completeWork(
   current: Fiber | null,
@@ -630,12 +277,10 @@ function completeWork(
             workInProgress,
           );
 
-          // 创建该节点下的所有的html Dom元素并添加到其中
+          // 创建该节点下的所有的子Dom元素并添加到其中
           appendAllChildren(instance, workInProgress, false, false);
 
-          // Certain renderers require commit-time effects for initial mount.
-          // (eg DOM renderer supports auto-focus for certain elements).
-          // Make sure such renderers get scheduled for later work.
+          // 为当前的html dom节点设置属性，并为叶子节点设置文本，返回是否需要聚焦
           if (
             finalizeInitialChildren(
               instance,
@@ -647,6 +292,7 @@ function completeWork(
           ) {
             markUpdate(workInProgress);
           }
+          // 设置html原生节点的wip的stateNode的值为dom对象
           workInProgress.stateNode = instance;
         }
 

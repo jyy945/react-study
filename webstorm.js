@@ -15,6 +15,7 @@ module.exports = {
     extensions: [".js", ".vue", ".json"],
     alias: {
       "react-reconciler": path.resolve(__dirname, "packages/react-reconciler"),
+      "react-dom":  path.resolve(__dirname, "packages/react-dom"),
       "shared": path.resolve(__dirname, "packages/shared"),
       "scheduler": path.resolve(__dirname, "packages/scheduler"),
     }
