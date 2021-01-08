@@ -85,35 +85,46 @@ function markUpdate(workInProgress: Fiber) {
 function markRef(workInProgress: Fiber) {
   workInProgress.effectTag |= Ref;
 }
-  // 为节点创建其所有的子节点dom
+  // 通过子节点fiber为节点创建其所有的子节点dom，并将其放在该节点的dom元素下
+  // 对wip的fiber子树中的所有节点进行遍历，直到找到HostComponent或HostText类型节点，将其对应的dom添加到wip对应的dom下
+  // 因为只有HostComponent和HostText节点是可以创建对应的dom节点的，为了构成最终的dom树，只需要找到这些节点然后构建就可以
   let appendAllChildren = function(
     parent: Instance,
     workInProgress: Fiber,
     needsVisibilityToggle: boolean,
     isHidden: boolean,
   ) {
+    // 对wip的子fiber树中的所有fiber进行遍历，找到所有的HostComponent和HostText节点，然后将对应的dom添加到wip对应的dom下
+    // 因为非HostComponent和HostText类型节点是没有真实的dom元素的，只是抽象的fiber对象，需要继续下找到HostComponent和HostText类型节点，
+    // 然后将这些dom挂在到祖先fiber树中的第一个HostComponent和HostText类型节点
     let node = workInProgress.child;
     while (node !== null) {
+      // wip为html原生标签，则将其子dom元素添加到其子节点
       if (node.tag === HostComponent || node.tag === HostText) {
         appendInitialChild(parent, node.stateNode);
-      } else if (node.tag === HostPortal) {
-        // If we have a portal child, then we don't want to traverse
-        // down its children. Instead, we'll get insertions from each child in
-        // the portal directly.
-      } else if (node.child !== null) {
+      }
+      else if (node.tag === HostPortal) {
+      }
+      // 若子节点的child不为空，则设置子节点和父节点的联系
+      else if (node.child !== null) {
         node.child.return = node;
         node = node.child;
         continue;
       }
+
+      // 当前节点为wip，表示其所有子节点的dom已经完成更新和挂在
       if (node === workInProgress) {
         return;
       }
+      // 不断向上查找父节点，直到这个父节点为wip则退出。
+      // 若期间的节点有兄弟节点，则对这个节点进行处理
       while (node.sibling === null) {
         if (node.return === null || node.return === workInProgress) {
           return;
         }
         node = node.return;
       }
+      // 设置node的其他兄弟节点的reture的值为node的父节点
       node.sibling.return = node.return;
       node = node.sibling;
     }
@@ -122,6 +133,8 @@ function markRef(workInProgress: Fiber) {
   let updateHostContainer = function(workInProgress: Fiber) {
     // Noop
   };
+
+  // 更新HostComponent节点
   let updateHostComponent = function(
     current: Fiber,
     workInProgress: Fiber,
@@ -132,9 +145,8 @@ function markRef(workInProgress: Fiber) {
     // If we have an alternate, that means this is an update and we need to
     // schedule a side-effect to do the updates.
     const oldProps = current.memoizedProps;
+    // 前后两次的props一致，不需要更新
     if (oldProps === newProps) {
-      // In mutation mode, this is sufficient for a bailout because
-      // we won't touch this node even if children changed.
       return;
     }
 
@@ -175,6 +187,9 @@ function markRef(workInProgress: Fiber) {
     }
   };
 
+
+// 若当前节点为HostComponent，则创建或更新这个节点对应的dom
+// 若为创建则将其子树中的dom节点添加到当前的dom中，从而构成dom树
 function completeWork(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -197,7 +212,7 @@ function completeWork(
       }
       break;
     }
-    case HostRoot: {
+    case HostRoot: { // fiber树的最高层fiber
       popHostContainer(workInProgress);
       popTopLevelLegacyContextObject(workInProgress);
       const fiberRoot = (workInProgress.stateNode: FiberRoot);
@@ -277,7 +292,7 @@ function completeWork(
             workInProgress,
           );
 
-          // 创建该节点下的所有的子Dom元素并添加到其中
+          // 通过wip的children，创建对应的dom，并添加到当前节点的dom下
           appendAllChildren(instance, workInProgress, false, false);
 
           // 为当前的html dom节点设置属性，并为叶子节点设置文本，返回是否需要聚焦

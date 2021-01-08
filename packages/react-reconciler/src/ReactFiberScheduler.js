@@ -409,10 +409,7 @@ function commitAllHostEffects() {
       }
     }
 
-    // The following switch statement is only concerned about placement,
-    // updates, and deletions. To avoid needing to add a case for every
-    // possible bitmap value, we remove the secondary effects from the
-    // effect tag and switch on that value.
+    // 根据effect的类型，执行不同的commit
     let primaryEffectTag = effectTag & (Placement | Update | Deletion);
     switch (primaryEffectTag) {
       case Placement: {
@@ -580,11 +577,9 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
   ReactCurrentOwner.current = null;
 
   let firstEffect;
+  // rootFiber上也有effect，只有第一次执行的时候会有
+  // 将这个effect放在其effect链的尾部
   if (finishedWork.effectTag > PerformedWork) {
-    // A fiber's effect list consists only of its children, not itself. So if
-    // the root has an effect, we need to add it to the end of the list. The
-    // resulting list is the set that would belong to the root's parent, if
-    // it had one; that is, all the effects in the tree including the root.
     if (finishedWork.lastEffect !== null) {
       finishedWork.lastEffect.nextEffect = finishedWork;
       firstEffect = finishedWork.firstEffect;
@@ -592,7 +587,6 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
       firstEffect = finishedWork;
     }
   } else {
-    // There is no effect on the root.
     firstEffect = finishedWork.firstEffect;
   }
 
@@ -601,6 +595,7 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
   // Invoke instances of getSnapshotBeforeUpdate before mutation.
   nextEffect = firstEffect;
   startCommitSnapshotEffectsTimer();
+  // 遍历effect链
   while (nextEffect !== null) {
     let didError = false;
     let error;
@@ -892,14 +887,14 @@ function resetChildExpirationTime(
   workInProgress.childExpirationTime = newChildExpirationTime;
 }
 
-// 当前的wip已经是子节点
+// 当前的wip已经是子节点，从这个节点向上遍历，对HostComponent或HostText创建dom元素并构建dom树，或更新dom
+// 遍历过程中，若节点包含兄弟节点，则返回这个兄弟节点，
+// 若更新完成，且其包含下一个兄弟节点，则返回这个节点的兄弟节点，然后进入beginWork对这个兄弟节点的子树更新和创建fiber
+// 若无兄弟节点，对其父节点进行创建或更新dom元素
+// 同时会将当前节点的effect链添加到父节点的effect链中，若当前节点也为effectTag，则将当前节点wip放入父节点的effect链尾部
 function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   // 完成当前的节点的渲染，然后执行他的下一个兄弟节点，若没有兄弟节点，则返回其父节点
   while (true) {
-    // The current, flushed, state of this fiber is the alternate.
-    // Ideally nothing should rely on this, but relying on it here
-    // means that we don't need an additional field on the work in
-    // progress.
     const current = workInProgress.alternate;
     if (__DEV__) {
       ReactCurrentFiber.setCurrentFiber(workInProgress);
@@ -909,13 +904,14 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
     const siblingFiber = workInProgress.sibling;  // 下一个兄弟节点
 
     // 该节点已经完成了节点的渲染更新
+    // 若没有报错，则对这个
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
       // This fiber completed.
       if (enableProfilerTimer) {
         if (workInProgress.mode & ProfileMode) {
           startProfilerTimer(workInProgress);
         }
-
+        // 对HostComponent或HostText创建dom元素并构建dom子树，或更新dom
         nextUnitOfWork = completeWork(
           current,
           workInProgress,
@@ -927,6 +923,8 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
           stopProfilerTimerIfRunningAndRecordDelta(workInProgress, false);
         }
       } else {
+        // 若当前节点为HostComponent，则创建或更新这个节点对应的dom
+        // 若为创建则将其子树中的dom节点添加到当前的dom中，从而构成dom树
         nextUnitOfWork = completeWork(
           current,
           workInProgress,
@@ -939,17 +937,18 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
         ReactCurrentFiber.resetCurrentFiber();
       }
 
+      // 将当前节点的effect链拼接到父节点的effect链尾部
+      // 若当前节点有effect，workInProgress.effectTag > PerformedWork，则将当前wip作为effect添加到父节点的effect链尾部
       if (
         returnFiber !== null &&
         // Do not append effects to parents if a sibling failed to complete
         (returnFiber.effectTag & Incomplete) === NoEffect
       ) {
-        // Append all the effects of the subtree and this fiber onto the effect
-        // list of the parent. The completion order of the children affects the
-        // side-effect order.
+        // 若父节点的effect链为空，则将当前的effect链放在父节点的effect链
         if (returnFiber.firstEffect === null) {
           returnFiber.firstEffect = workInProgress.firstEffect;
         }
+        // 将当前effect链拼接到父节点的effect链尾部
         if (workInProgress.lastEffect !== null) {
           if (returnFiber.lastEffect !== null) {
             returnFiber.lastEffect.nextEffect = workInProgress.firstEffect;
@@ -957,15 +956,8 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
           returnFiber.lastEffect = workInProgress.lastEffect;
         }
 
-        // If this fiber had side-effects, we append it AFTER the children's
-        // side-effects. We can perform certain side-effects earlier if
-        // needed, by doing multiple passes over the effect list. We don't want
-        // to schedule our own side-effect on our own list because if end up
-        // reusing children we'll schedule this effect onto itself since we're
-        // at the end.
+        // 若当前的wip也有effect，则将其添加到父effect链尾部
         const effectTag = workInProgress.effectTag;
-        // Skip both NoWork and PerformedWork tags when creating the effect list.
-        // PerformedWork effect is read by React DevTools but shouldn't be committed.
         if (effectTag > PerformedWork) {
           if (returnFiber.lastEffect !== null) {
             returnFiber.lastEffect.nextEffect = workInProgress;
@@ -980,15 +972,13 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
         ReactFiberInstrumentation.debugTool.onCompleteWork(workInProgress);
       }
 
+      // 若当前节点有兄弟节点，则返回这个兄弟节点，然后开始渲染更新这个兄弟节点
       if (siblingFiber !== null) {
-        // If there is more work to do in this returnFiber, do that next.
         return siblingFiber;
-      } else if (returnFiber !== null) {
-        // If there's no more work in this returnFiber. Complete the returnFiber.
+      } else if (returnFiber !== null) {  // 若没有下个兄弟节点，则继续执行父节点的complete
         workInProgress = returnFiber;
         continue;
-      } else {
-        // We've reached the root.
+      } else { // 已经到达了fiber树的顶点
         return null;
       }
     } else {
@@ -1069,9 +1059,7 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   return null;
 }
 
-// 处理单个fiber节点
-// 根据节点不同的类型执行后获取到新子节点，然后对比老子节点，获取处理后的新子节点
-// 若已经处理到叶子节点，则执行completeUnitOfWork
+// 处理单个fiber节点，构建或更新以当前节点为顶点的fiber树和dom树
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   // 获取wip对应的filber对象
   const current = workInProgress.alternate;
@@ -1095,6 +1083,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
       startProfilerTimer(workInProgress);
     }
 
+    // 从上到下构建fiber子树或更新fiber子树
     next = beginWork(current, workInProgress, nextRenderExpirationTime);
     workInProgress.memoizedProps = workInProgress.pendingProps;
 
@@ -1134,6 +1123,12 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 // 对fiber树中的所有fiber进行遍历执行
 // 若为不可打断的任务，则对fiber树一直遍历，直到完全执行
 // 若为可打断的任务，则在时间片的时间范围内对fiber树进行遍历执行，直到时间截至。
+
+// 首先执行beginWork从当前节点开始，执行获取最新的子节点fiber信息，然后和旧的子节点进行diff，得到最新的fiber。
+// 然后向下继续执行获取最新的子fiber信息，直到到了叶子节点
+// 然后开始completeUnitOfWork，向上开始对节点类型为HostComponent或HostText的节点构建或更新dom子树，并对dom的props进行diff。得到最新的dom子树
+// 在向上的过程中若节点有兄弟节点，则执行beginWork，直到叶子节点，然后继续completeUnitOfWork.
+// 最后直到又返回rootFiber结束，此时已经完全构建完成的fiber树和dom树
 function workLoop(isYieldy) {
   if (!isYieldy) {  // 若不可被打断，则一直执行直到结束
     while (nextUnitOfWork !== null) { // nextUnitOfWork为当前节点的wip对象
@@ -1236,8 +1231,8 @@ function renderRoot(
 
   startWorkLoopTimer(nextUnitOfWork);
 
-  // 从父节点的wip开始遍历类似于深度优先，直到叶子节点。
-  // 更新子节点时，比较新老子节点，返回处理后的
+  // 从rootFiber开始向下开始构建或更新fiber树，直到叶子节点
+  // 然后向上构建或更新dom节点，若期间有兄弟节点，则继续相加构建fiber，不断循环
   do {
     try {
       workLoop(isYieldy);
@@ -1301,7 +1296,7 @@ function renderRoot(
     __interactionsRef.current = prevInteractions;
   }
 
-  // We're done performing work. Time to clean up.
+  // render阶段完成
   isWorking = false;
   ReactCurrentOwner.currentDispatcher = null;
   resetContextDependences();
@@ -1431,7 +1426,7 @@ function renderRoot(
     return;
   }
 
-  // Ready to commit.
+  // 开始进入commit阶段
   onComplete(root, rootWorkInProgress, expirationTime);
 }
 
@@ -1917,6 +1912,7 @@ function onFatal(root) {
   root.finishedWork = null;
 }
 
+// 进入commit阶段的准备
 function onComplete(
   root: FiberRoot,
   finishedWork: Fiber,

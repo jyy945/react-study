@@ -77,7 +77,7 @@ import {
   hideTextInstance,
   unhideInstance,
   unhideTextInstance,
-} from './ReactFiberHostConfig';
+} from 'react-dom/src/client/ReactDOMHostConfig';
 import {
   captureCommitPhaseError,
   requestCurrentTime,
@@ -619,6 +619,7 @@ function commitContainer(finishedWork: Fiber) {
   }
 }
 
+// 向上遍历获取第一个可以创建dom的节点
 function getHostParentFiber(fiber: Fiber): Fiber {
   let parent = fiber.return;
   while (parent !== null) {
@@ -634,6 +635,7 @@ function getHostParentFiber(fiber: Fiber): Fiber {
   );
 }
 
+// 查看当前fiber是否可以创建dom
 function isHostParent(fiber: Fiber): boolean {
   return (
     fiber.tag === HostComponent ||
@@ -684,18 +686,20 @@ function getHostSibling(fiber: Fiber): ?Instance {
   }
 }
 
+// 提交新增操作
 function commitPlacement(finishedWork: Fiber): void {
   if (!supportsMutation) {
     return;
   }
 
-  // Recursively insert all host nodes into the parent.
+  // 向上遍历获取第一个可以创建dom的节点
   const parentFiber = getHostParentFiber(finishedWork);
 
   // Note: these two variables *must* always be updated together.
   let parent;
   let isContainer;
 
+  // 根据不同的fiber类型获取对应的dom对象
   switch (parentFiber.tag) {
     case HostComponent:
       parent = parentFiber.stateNode;
@@ -716,8 +720,9 @@ function commitPlacement(finishedWork: Fiber): void {
           'in React. Please file an issue.',
       );
   }
+  // 若effect类型为ContentReset，则重置parent的文本，并将这个类型删除
   if (parentFiber.effectTag & ContentReset) {
-    // Reset the text content of the parent before doing any insertions
+    // 在执行任何插入之前重置父级的文本内容
     resetTextContent(parent);
     // Clear ContentReset from the effect tag
     parentFiber.effectTag &= ~ContentReset;
@@ -941,6 +946,7 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
   }
 }
 
+// 重置节点的文本
 function commitResetTextContent(current: Fiber) {
   if (!supportsMutation) {
     return;

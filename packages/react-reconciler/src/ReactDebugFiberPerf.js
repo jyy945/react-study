@@ -61,6 +61,7 @@ let isCommitting: boolean = false;
 let hasScheduledUpdateInCurrentCommit: boolean = false;
 let hasScheduledUpdateInCurrentPhase: boolean = false;
 let commitCountInCurrentWorkLoop: number = 0;
+// 已提交的effect的个数
 let effectCountInCurrentCommit: number = 0;
 let isWaitingForCallback: boolean = false;
 // During commits, we only show a measurement once per method name

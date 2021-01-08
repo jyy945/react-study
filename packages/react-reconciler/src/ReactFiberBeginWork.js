@@ -711,6 +711,7 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
   return workInProgress.child;
 }
 
+// 调和html标签节点
 function updateHostComponent(current, workInProgress, renderExpirationTime) {
   pushHostContext(workInProgress);
 
@@ -724,18 +725,14 @@ function updateHostComponent(current, workInProgress, renderExpirationTime) {
 
   let nextChildren = nextProps.children;
   // 查看子节点是否为纯字符串或当前子节点是否为textarea、option等
+  // 查看是否需要将该节点的内容设置为文本，例如span节点，textarea，或者是react的dangerouslySetInnerHTML
   const isDirectTextChild = shouldSetTextContent(type, nextProps);
   // 若子节点时纯字符串或当前子节点是否为textarea、option等
   // 则子节点不需要创建fiber对象。因为当前节点就是叶子节点，比如span、p等
   if (isDirectTextChild) {
-    // We special case a direct text child of a host node. This is a common
-    // case. We won't handle it as a reified child. We will instead handle
-    // this in the host environment that also have access to this prop. That
-    // avoids allocating another HostText fiber and traversing it.
+    // 子节点的fiber设置为null，因为子节点应该是字符串
     nextChildren = null;
-  } else if (prevProps !== null && shouldSetTextContent(type, prevProps)) {
-    // If we're switching from a direct text child to a normal child, or to
-    // empty, we need to schedule the text content to be reset.
+  } else if (prevProps !== null && shouldSetTextContent(type, prevProps)) { // 不是第一次渲染，且子节点依旧是文本，需要重置这个节点内容
     workInProgress.effectTag |= ContentReset;
   }
 
@@ -752,6 +749,7 @@ function updateHostComponent(current, workInProgress, renderExpirationTime) {
     return null;
   }
 
+  // 调和子节点
   reconcileChildren(
     current,
     workInProgress,

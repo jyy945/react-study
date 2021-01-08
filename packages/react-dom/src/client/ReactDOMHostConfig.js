@@ -206,6 +206,7 @@ export function createInstance(
   return domElement;
 }
 
+// 为父节点dom添加子节点dom
 export function appendInitialChild(
   parentInstance: Instance,
   child: Instance | TextInstance,
@@ -258,7 +259,7 @@ export function prepareUpdate(
   );
 }
 
-//
+// 检查是否需要设置文本子节点
 export function shouldSetTextContent(type: string, props: Props): boolean {
   return (
     type === 'textarea' ||
@@ -338,6 +339,7 @@ export function commitUpdate(
   updateProperties(domElement, updatePayload, type, oldProps, newProps);
 }
 
+// 重置文本为空
 export function resetTextContent(domElement: Instance): void {
   setTextContent(domElement, '');
 }
