@@ -67,7 +67,7 @@ import {
   cancelDeferredCallback,
   prepareForCommit,
   resetAfterCommit,
-} from './ReactFiberHostConfig';
+} from 'react-dom/src/client/ReactDOMHostConfig';
 import {
   markPendingPriorityLevel,
   markCommittedPriorityLevels,
@@ -398,6 +398,7 @@ function commitAllHostEffects() {
 
     const effectTag = nextEffect.effectTag;
 
+    // effect类型为重置内容
     if (effectTag & ContentReset) {
       commitResetTextContent(nextEffect);
     }
@@ -412,6 +413,7 @@ function commitAllHostEffects() {
     // 根据effect的类型，执行不同的commit
     let primaryEffectTag = effectTag & (Placement | Update | Deletion);
     switch (primaryEffectTag) {
+      // 新增节点
       case Placement: {
         commitPlacement(nextEffect);
         // Clear the "placement" from effect tag so that we know that this is inserted, before

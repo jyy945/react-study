@@ -724,7 +724,7 @@ function commitPlacement(finishedWork: Fiber): void {
   if (parentFiber.effectTag & ContentReset) {
     // 在执行任何插入之前重置父级的文本内容
     resetTextContent(parent);
-    // Clear ContentReset from the effect tag
+    // 将ContentReset标记从effectTag中移出
     parentFiber.effectTag &= ~ContentReset;
   }
 
