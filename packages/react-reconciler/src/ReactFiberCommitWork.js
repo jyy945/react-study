@@ -644,33 +644,27 @@ function isHostParent(fiber: Fiber): boolean {
   );
 }
 
+// 在fiber树上找到fiber的dom需要插入在dom之前的节点
+// 因为fiber对象是抽象对象，并不都能够生成dom，只有HostComponent和HostText才可以生成dom
 function getHostSibling(fiber: Fiber): ?Instance {
-  // We're going to search forward into the tree until we find a sibling host
-  // node. Unfortunately, if multiple insertions are done in a row we have to
-  // search past them. This leads to exponential search for the next sibling.
-  // TODO: Find a more efficient way to do this.
   let node: Fiber = fiber;
   siblings: while (true) {
-    // If we didn't find anything, let's try the next sibling.
+    // 在fiber树上向上找到兄弟节点不为空的节点
     while (node.sibling === null) {
       if (node.return === null || isHostParent(node.return)) {
-        // If we pop out of the root or hit the parent the fiber we are the
-        // last sibling.
         return null;
       }
       node = node.return;
     }
     node.sibling.return = node.return;
     node = node.sibling;
+    // 在兄弟节点的子树中，找到第一个可转为dom的节点
     while (node.tag !== HostComponent && node.tag !== HostText) {
-      // If it is not host node and, we might have a host node inside it.
-      // Try to search down until we find one.
+      // 若这个兄弟节点也为placement需要新建，则回到while，去找下一个节点
       if (node.effectTag & Placement) {
-        // If we don't have a child, try the siblings instead.
         continue siblings;
       }
-      // If we don't have a child, try the siblings instead.
-      // We also skip portals because they are not part of this host tree.
+      // 若没有子节点，则返回到上层while，去找下一个节点
       if (node.child === null || node.tag === HostPortal) {
         continue siblings;
       } else {
@@ -720,7 +714,7 @@ function commitPlacement(finishedWork: Fiber): void {
           'in React. Please file an issue.',
       );
   }
-  // 若effect类型为ContentReset，则重置parent的文本，并将这个类型删除
+  // 若上一个可以dom化的fiber的effect类型为ContentReset，则重置parent的文本，并将这个类型删除
   if (parentFiber.effectTag & ContentReset) {
     // 在执行任何插入之前重置父级的文本内容
     resetTextContent(parent);
@@ -728,9 +722,8 @@ function commitPlacement(finishedWork: Fiber): void {
     parentFiber.effectTag &= ~ContentReset;
   }
 
+  // 找到fiber树中第一个不为placement类型的可生成dom的节点
   const before = getHostSibling(finishedWork);
-  // We only have the top Fiber that was inserted but we need recurse down its
-  // children to find all the terminal nodes.
   let node: Fiber = finishedWork;
   while (true) {
     if (node.tag === HostComponent || node.tag === HostText) {
@@ -747,11 +740,13 @@ function commitPlacement(finishedWork: Fiber): void {
           appendChild(parent, node.stateNode);
         }
       }
-    } else if (node.tag === HostPortal) {
+    }
+    else if (node.tag === HostPortal) {
       // If the insertion itself is a portal, then we don't want to traverse
       // down its children. Instead, we'll get insertions from each child in
       // the portal directly.
-    } else if (node.child !== null) {
+    }
+    else if (node.child !== null) {
       node.child.return = node;
       node = node.child;
       continue;

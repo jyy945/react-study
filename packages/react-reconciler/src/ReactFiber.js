@@ -221,30 +221,32 @@ function FiberNode(
   this.key = key;
   this.elementType = null;
   this.type = null;
-  this.stateNode = null; // 状态节点。HostTags类型的stateNode为fiberRoot，ClassComponent类型的stateNode为组件对象的实例
-
+  // 状态节点。HostTags类型的stateNode为fiberRoot，
+  // ClassComponent类型的stateNode为组件对象的实例
+  // HostComponent的stateNode为dom对象
+  this.stateNode = null;
   // Fiber
-  this.return = null;
-  this.child = null;
-  this.sibling = null;
+  this.return = null; // 父节点
+  this.child = null;  // 第一个子节点
+  this.sibling = null;  // 下一个兄弟节点
   this.index = 0;
 
   this.ref = null;
 
-  this.pendingProps = pendingProps;
-  this.memoizedProps = null;
-  this.updateQueue = null;
-  this.memoizedState = null;
+  this.pendingProps = pendingProps; // 新props
+  this.memoizedProps = null;  // 旧props
+  this.updateQueue = null;  // 更新队列
+  this.memoizedState = null;  // 旧的state
   this.firstContextDependency = null;
 
   this.mode = mode;
 
   // Effects
-  this.effectTag = NoEffect;
-  this.nextEffect = null;
+  this.effectTag = NoEffect;  // 副作用类型
+  this.nextEffect = null; // 下一个副作用
 
-  this.firstEffect = null;
-  this.lastEffect = null;
+  this.firstEffect = null;  // effect链中第一个effect
+  this.lastEffect = null; // effect链中最后一个effect
 
   this.expirationTime = NoWork;
   this.childExpirationTime = NoWork;
@@ -276,7 +278,6 @@ const createFiber = function(
   key: null | string,
   mode: TypeOfMode,
 ): Fiber {
-  // $FlowFixMe: the shapes are exact here but Flow doesn't like constructors
   return new FiberNode(tag, pendingProps, key, mode);
 };
 

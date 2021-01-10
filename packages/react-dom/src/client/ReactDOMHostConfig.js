@@ -397,6 +397,7 @@ export function insertBefore(
   parentInstance.insertBefore(child, beforeChild);
 }
 
+// 将child插入到beforeChild之前
 export function insertInContainerBefore(
   container: Container,
   child: Instance | TextInstance,

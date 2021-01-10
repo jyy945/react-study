@@ -109,7 +109,7 @@ export function createFiberRoot(
   isConcurrent: boolean,
   hydrate: boolean,
 ): FiberRoot {
-  // 首先创建一个空的rootFiber对象
+  // 首先创建一个初始的rootFiber对象
   const uninitializedFiber = createHostRootFiber(isConcurrent);
 
   let root;
@@ -171,10 +171,5 @@ export function createFiberRoot(
   }
   // 为fiberRoot和rootFiber构建联系
   uninitializedFiber.stateNode = root;
-
-  // The reason for the way the Flow types are structured in this file,
-  // Is to avoid needing :any casts everywhere interaction tracing fields are used.
-  // Unfortunately that requires an :any cast for non-interaction tracing capable builds.
-  // $FlowFixMe Remove this :any cast and replace it with something better.
   return ((root: any): FiberRoot);
 }
