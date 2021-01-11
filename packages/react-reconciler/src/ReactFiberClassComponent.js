@@ -147,7 +147,7 @@ if (__DEV__) {
 // 调用执行getDerivedStateFromProps方法
 // 首先执行getDerivedStateFromProps方法，得到一个新的state
 // 将新的state和旧的state进行merger
-// 将罪行的state更新到更新队列的baseState上
+// 将最新的state更新到更新队列的baseState上
 export function applyDerivedStateFromProps(
   workInProgress: Fiber,
   ctor: any,
@@ -190,8 +190,10 @@ export function applyDerivedStateFromProps(
   }
 }
 
+// 在对象实例上挂载的updater，用于操作update
 const classComponentUpdater = {
   isMounted,
+  // 执行setState后，创建update，放入fiber和wip的updateQueue，然后调度任务
   enqueueSetState(inst, payload, callback) {
     const fiber = ReactInstanceMap.get(inst);
     const currentTime = requestCurrentTime();
@@ -206,10 +208,14 @@ const classComponentUpdater = {
       update.callback = callback;
     }
 
-    enqueueUpdate(fiber, update);
-    scheduleWork(fiber, expirationTime);
+    enqueueUpdate(fiber, update); // 将update加入fiber和wip的updateQueue
+    scheduleWork(fiber, expirationTime);  // 对任务进行调度
   },
-  // 将
+  // componentWillMount和componentWillReceiveProps中可以修改实例的state，
+  // 若新旧的state不一致，就需要执行这个方法。
+  // 1.创建update，update类型为ReplaceState
+  // 2.将更新放入更新队列
+  // 3.将任务调度
   enqueueReplaceState(inst, payload, callback) {
     const fiber = ReactInstanceMap.get(inst); // 获取对象实例对用的wip
     const currentTime = requestCurrentTime();
@@ -674,6 +680,7 @@ function constructClassInstance(
 }
 
 // 调用执行componentWillMount声明周期方法
+// 若执行之后，state改变了，则创建一个新的update放入updateQueue，随后加入任务调度
 function callComponentWillMount(workInProgress, instance) {
   startPhaseTimer(workInProgress, 'componentWillMount');
   const oldState = instance.state;
@@ -687,7 +694,7 @@ function callComponentWillMount(workInProgress, instance) {
 
   stopPhaseTimer();
 
-  // cwm执行了
+  // cwm执行了之后，可能修改了state，若新旧的state不一致，就需要创建一个新的update，放入更新队列并进行任务调度
   if (oldState !== instance.state) {
     if (__DEV__) {
       warningWithoutStack(
@@ -739,6 +746,10 @@ function callComponentWillReceiveProps(
 }
 
 // 在从未进行渲染过的class组件中执行mount生命周期方法
+// 1.首先将wip中的props和state、ref赋值给对象实例中
+// 2.然后遍历执行updateQueue中的update，计算最新的state，更新对象实例state、wip、updateQueue中的baseState
+// 3.执行getDerivedStateFromProps方法，更新对象实例state、wip、updateQueue中的baseState
+// 4.若可以执行componentWillMount，则执行后检查新旧的state是否相同，若不相同，则创建update放入updateQueue并调度任务
 function mountClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -825,7 +836,7 @@ function mountClassInstance(
     instance.state = workInProgress.memoizedState;
   }
 
-  // 若执行旧的声明周期方法componentWillMount
+  // 执行旧的声明周期方法componentWillMount
   // 但前提是同时不会存在getDerivedStateFromProps或getSnapshotBeforeUpdate方法，
   // 否则componentWillMount方法不会执行
   // 之所以这样是因为getDerivedStateFromProps是新的方法，二者同时执行会产生问题

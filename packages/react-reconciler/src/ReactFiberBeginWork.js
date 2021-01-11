@@ -585,7 +585,7 @@ function finishClassComponent(
       }
       ReactCurrentFiber.setCurrentPhase(null);
     } else {
-      nextChildren = instance.render();
+      nextChildren = instance.render(); // 执行class组件的render方法，获取到子节点
     }
   }
 
@@ -935,14 +935,10 @@ function mountIndeterminateComponent(
   Component,
   renderExpirationTime,
 ) {
-  if (_current !== null) {
-    // An indeterminate component only mounts if it suspended inside a non-
-    // concurrent tree, in an inconsistent state. We want to tree it like
-    // a new mount, even though an empty version of it already committed.
-    // Disconnect the alternate pointers.
+  if (_current !== null) { // suspended组件
     _current.alternate = null;
     workInProgress.alternate = null;
-    // Since this is conceptually a new fiber, schedule a Placement effect
+    // 添加placement（新建）副作用标记
     workInProgress.effectTag |= Placement;
   }
 
@@ -980,9 +976,10 @@ function mountIndeterminateComponent(
     ReactCurrentOwner.current = workInProgress;
     value = Component(props, context);
   } else {
+    // 执行获取最新的子节点信息
     value = Component(props, context);
   }
-  // React DevTools reads this flag.
+  // 加入performedWork副作用标记
   workInProgress.effectTag |= PerformedWork;
 
   // 是一个class组件，则使用更新class组件的代码
@@ -992,7 +989,7 @@ function mountIndeterminateComponent(
     typeof value.render === 'function' && // 此处认为只要存在render方法，就是class组件
     value.$$typeof === undefined
   ) {
-    // Proceed under the assumption that this is a class instance
+    // 设置组件类型为ClassComponent
     workInProgress.tag = ClassComponent;
 
     // Push context providers early to prevent context stack mismatches.
@@ -1009,6 +1006,7 @@ function mountIndeterminateComponent(
     workInProgress.memoizedState =
       value.state !== null && value.state !== undefined ? value.state : null;
 
+    // 执行getDerivedStateFromProps
     const getDerivedStateFromProps = Component.getDerivedStateFromProps;
     if (typeof getDerivedStateFromProps === 'function') {
       applyDerivedStateFromProps(
@@ -1019,7 +1017,9 @@ function mountIndeterminateComponent(
       );
     }
 
+    // 将对象实例挂载到wip
     adoptClassInstance(workInProgress, value);
+    // 在第一次渲染中初始化对象实例信息
     mountClassInstance(workInProgress, Component, props, renderExpirationTime);
     return finishClassComponent(
       null,

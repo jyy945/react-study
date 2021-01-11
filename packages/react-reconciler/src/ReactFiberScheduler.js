@@ -1743,7 +1743,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   return root;
 }
 
-// 对fiberRoot进行调度。
+// 对fiber进行调度。
 // 首先根据更新的fiber，不断地向上找到对应的fiberRoot，其中刷新每个节点的childExpirationTime，也就是记录子树中的最高优先级
 // 然后查看是否当前的fiberRoot的优先级高于原本就需要执行的fiberRoot的优先级，
 // 若有则从nextUnitOfWork（也就是之前的fiberRoot的更新中，下一个需要更新的fiber节点）开始不断的向上进行回滚，
