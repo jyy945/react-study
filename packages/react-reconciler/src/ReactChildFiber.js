@@ -234,7 +234,8 @@ function warnOnFunctionType() {
 
 // 对子组件进行调和
 function ChildReconciler(shouldTrackSideEffects) {
-  // 将子节点的删除动作记录在父节点的effectList中
+  // 将子节点childToDelete从父节点returnFiber中标记删除
+  // 并标记该子节点的wip的effectTag为Deletion，将这个wip放入父节点的effectList中
   function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
     // 若为初始化，则什么都不做
     if (!shouldTrackSideEffects) {
@@ -253,7 +254,8 @@ function ChildReconciler(shouldTrackSideEffects) {
     childToDelete.effectTag = Deletion;
   }
 
-  // 标记删除自currentFirstChild开始的子节点
+  // 标记删除除currentFirstChild意外的所有子节点
+  // 将需要删除的节点的wip放入父节点的effect链中，并将这个wip的effectTag设置为Deletion
   function deleteRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -329,6 +331,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
   }
 
+  //
   function placeSingleChild(newFiber: Fiber): Fiber {
     // This is simpler for the single child case. We only need to do a
     // placement for inserting new children.
@@ -1083,7 +1086,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     // 若之前的子节点中第一个子节点为文本节点，则移除其他的兄弟节点
     // 同时保留这个文本节点只更新其内部props
     if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
-      // 标记删除文本子节点的所有兄弟节点
+      // 标记删除returnFiber中除currentFirstChild之外的所有子节点
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
       // 创建或更新wip
       const existing = useFiber(currentFirstChild, textContent, expirationTime);
@@ -1101,7 +1104,10 @@ function ChildReconciler(shouldTrackSideEffects) {
     return created;
   }
 
-  // 对类型为Element的单个节点进行调和
+  // 调和单个ReactElement类型element子节点
+  // 将父节点中所有子节点进行遍历，查找这些子节点中key和类型与新子节点element相同的子节点
+  // 若不存在这个子节点，则将所有的子节点标记删除，其wip的effectTag设置为Deletion
+  // 若存在这个子节点，则将除了这个子节点外其他的所有子节点标记删除，将其wip的effectTag设置为Deletion
   function reconcileSingleElement(
     returnFiber: Fiber, // 当前的wip
     currentFirstChild: Fiber | null,  // 当前的旧子fiber
@@ -1110,11 +1116,11 @@ function ChildReconciler(shouldTrackSideEffects) {
   ): Fiber {
     const key = element.key;
     let child = currentFirstChild;
-    // 对当前节点的所有字节点进行遍历，一次对比key，查找之前的子节点中是否有可复用的节点，
+    // 对当前节点的所有字节点进行遍历，依次对比key，查找之前的子节点中是否有可复用的节点，
     // 若有则更新信息则删除其他节点fiber，直接返回这个fiber
     // 若没有则删除所有的节点
     while (child !== null) {
-      // 若key相同，则表示之前的子节点中有可复用的节点
+      // 若key相同，则表示之前的子节点可复用
       if (child.key === key) {
         // 即便key相同，也还要比较子节点的节点类型是否相同
         if (
@@ -1138,7 +1144,7 @@ function ChildReconciler(shouldTrackSideEffects) {
             existing._debugOwner = element._owner;
           }
           return existing;
-        } else {  // 若节点的类型不同，说明当前的子节点不能复用，直接将之前所有的子节点标记删除
+        } else {  // 若节点的类型不同，说明当前的子节点不能复用，直接将之前所有的子节点标记删除并退出遍历
           deleteRemainingChildren(returnFiber, child);
           break;
         }
@@ -1171,6 +1177,9 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
   }
 
+  // 遍历检查和子节点中是否key、tag等和新的子元素相同
+  // 若相同则此节点可以复用，并更新wip，标记删除其余的子节点将其wip的effectTag设置为Deletion
+  // 若不相同，则将所有子节点标记删除，并将所有删除的子节点的wip放入父节点的effectList
   function reconcileSinglePortal(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -1182,7 +1191,9 @@ function ChildReconciler(shouldTrackSideEffects) {
     while (child !== null) {
       // TODO: If key === null and child.key === null, then this only applies to
       // the first item in the list.
+      // 第一个子节点
       if (child.key === key) {
+        // 检查子节点是否为portal类型的reactElement，并且containerInfo、implementation相同
         if (
           child.tag === HostPortal &&
           child.stateNode.containerInfo === portal.containerInfo &&
@@ -1258,7 +1269,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       }
     }
 
-    // 子节点为html原生标签
+    // 子节点为文本
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(
