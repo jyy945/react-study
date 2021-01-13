@@ -18,6 +18,7 @@ module.exports = {
       "react-dom":  path.resolve(__dirname, "packages/react-dom"),
       "shared": path.resolve(__dirname, "packages/shared"),
       "scheduler": path.resolve(__dirname, "packages/scheduler"),
+      "events": path.resolve(__dirname, "packages/events")
     }
   }
 };

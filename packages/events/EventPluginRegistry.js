@@ -15,13 +15,12 @@ import type {
 } from './PluginModuleType';
 
 import invariant from 'shared/invariant';
+import {TOP_BLUR} from "react-dom/src/events/DOMTopLevelEventTypes";
 
 type NamesToPlugins = {[key: PluginName]: PluginModule<AnyNativeEvent>};
 type EventPluginOrder = null | Array<PluginName>;
 
-/**
- * Injectable ordering of event plugins.
- */
+// 事件插件的注入顺序
 let eventPluginOrder: EventPluginOrder = null;
 
 /**
@@ -29,11 +28,7 @@ let eventPluginOrder: EventPluginOrder = null;
  */
 const namesToPlugins: NamesToPlugins = {};
 
-/**
- * Recomputes the plugin list using the injected plugins and plugin ordering.
- *
- * @private
- */
+// 使用注入的插件和插件排序重新计算插件列表。
 function recomputePluginOrdering(): void {
   if (!eventPluginOrder) {
     // Wait until an `eventPluginOrder` is injected.
@@ -58,7 +53,17 @@ function recomputePluginOrdering(): void {
       pluginName,
     );
     plugins[pluginIndex] = pluginModule;
+    //{
+    //   change: {
+    //     phasedRegistrationNames: {
+    //       bubbled: 'onChange',
+    //       captured: 'onChangeCapture',
+    //     },
+    //     dependencies: [ ... ],
+    //  }
+    //}
     const publishedEvents = pluginModule.eventTypes;
+    // 对eventTypes中的事件类型进行遍历
     for (const eventName in publishedEvents) {
       invariant(
         publishEventForPlugin(
@@ -74,14 +79,25 @@ function recomputePluginOrdering(): void {
   }
 }
 
-/**
- * Publishes an event so that it can be dispatched by the supplied plugin.
- *
- * @param {object} dispatchConfig Dispatch configuration for the event.
- * @param {object} PluginModule Plugin publishing the event.
- * @return {boolean} True if the event was successfully published.
- * @private
- */
+
+
+// dispatchConfig：
+//    {
+//       change: {
+//         phasedRegistrationNames: {
+//           bubbled: 'onChange',
+//           captured: 'onChangeCapture',
+//         },
+//         dependencies: [ ... ],
+//      }
+//    }
+// pluginModule：
+// {
+//   eventTypes: eventTypes,
+//   _isInputEventSupported: isInputEventSupported,
+//   extractEvents：...
+// }
+// eventName: change
 function publishEventForPlugin(
   dispatchConfig: DispatchConfig,
   pluginModule: PluginModule<AnyNativeEvent>,
@@ -94,7 +110,10 @@ function publishEventForPlugin(
     eventName,
   );
   eventNameDispatchConfigs[eventName] = dispatchConfig;
-
+  //{
+  //  bubbled: 'onChange',
+  //  captured: 'onChangeCapture',
+  //}
   const phasedRegistrationNames = dispatchConfig.phasedRegistrationNames;
   if (phasedRegistrationNames) {
     for (const phaseName in phasedRegistrationNames) {
@@ -119,17 +138,11 @@ function publishEventForPlugin(
   return false;
 }
 
-/**
- * Publishes a registration name that is used to identify dispatched events.
- *
- * @param {string} registrationName Registration name to add.
- * @param {object} PluginModule Plugin publishing the event.
- * @private
- */
+// 发布用于标识已调度事件的注册名称
 function publishRegistrationName(
-  registrationName: string,
+  registrationName: string,   // 'onChange'
   pluginModule: PluginModule<AnyNativeEvent>,
-  eventName: string,
+  eventName: string,  // change
 ): void {
   invariant(
     !registrationNameModules[registrationName],
@@ -137,7 +150,9 @@ function publishRegistrationName(
       'registration name, `%s`.',
     registrationName,
   );
+  // onChange: ChangeEventPlugin
   registrationNameModules[registrationName] = pluginModule;
+  // onChange: [TOP_BLUR...]
   registrationNameDependencies[registrationName] =
     pluginModule.eventTypes[eventName].dependencies;
 
@@ -160,11 +175,10 @@ function publishRegistrationName(
 /**
  * Ordered list of injected plugins.
  */
+// 注入的事件数组
 export const plugins = [];
 
-/**
- * Mapping from event name to dispatch config
- */
+// 事件名称到调度配置的映射
 export const eventNameDispatchConfigs = {};
 
 /**
@@ -186,15 +200,9 @@ export const registrationNameDependencies = {};
 export const possibleRegistrationNames = __DEV__ ? {} : (null: any);
 // Trust the developer to only use possibleRegistrationNames in __DEV__
 
-/**
- * Injects an ordering of plugins (by plugin name). This allows the ordering
- * to be decoupled from injection of the actual plugins so that ordering is
- * always deterministic regardless of packaging, on-the-fly injection, etc.
- *
- * @param {array} InjectedEventPluginOrder
- * @internal
- * @see {EventPluginHub.injection.injectEventPluginOrder}
- */
+// 注入插件的顺序（按插件名称）。
+// 这使得排序与实际插件的注入分离，
+// 因此排序总是确定的，而不考虑包装、动态注入等。
 export function injectEventPluginOrder(
   injectedEventPluginOrder: EventPluginOrder,
 ): void {
@@ -203,7 +211,7 @@ export function injectEventPluginOrder(
     'EventPluginRegistry: Cannot inject event plugin ordering more than ' +
       'once. You are likely trying to load more than one copy of React.',
   );
-  // Clone the ordering so it cannot be dynamically mutated.
+  // 将事件插件的注入顺序数组克隆到eventPluginOrder，防止动态修改造成原数据被污染
   eventPluginOrder = Array.prototype.slice.call(injectedEventPluginOrder);
   recomputePluginOrdering();
 }
