@@ -222,7 +222,9 @@ if (__DEV__) {
   };
 }
 
+// 获取到dom节点的document对象，
 function ensureListeningTo(rootContainerElement, registrationName) {
+  // 获取到container的document节点
   const isDocumentOrFragment =
     rootContainerElement.nodeType === DOCUMENT_NODE ||
     rootContainerElement.nodeType === DOCUMENT_FRAGMENT_NODE;

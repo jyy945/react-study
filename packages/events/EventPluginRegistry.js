@@ -29,6 +29,7 @@ let eventPluginOrder: EventPluginOrder = null;
 const namesToPlugins: NamesToPlugins = {};
 
 // 使用注入的插件和插件排序重新计算插件列表。
+// 首先将事件插件按照顺序放入plugins数组中，其中0索引中为undefined。
 function recomputePluginOrdering(): void {
   if (!eventPluginOrder) {
     // Wait until an `eventPluginOrder` is injected.
@@ -99,9 +100,9 @@ function recomputePluginOrdering(): void {
 // }
 // eventName: change
 function publishEventForPlugin(
-  dispatchConfig: DispatchConfig,
-  pluginModule: PluginModule<AnyNativeEvent>,
-  eventName: string,
+  dispatchConfig: DispatchConfig, // 事件插件eventTypes中的事件对象
+  pluginModule: PluginModule<AnyNativeEvent>, // 事件插件
+  eventName: string,  // 事件名称
 ): boolean {
   invariant(
     !eventNameDispatchConfigs.hasOwnProperty(eventName),
@@ -114,11 +115,15 @@ function publishEventForPlugin(
   //  bubbled: 'onChange',
   //  captured: 'onChangeCapture',
   //}
-  const phasedRegistrationNames = dispatchConfig.phasedRegistrationNames;
+  const phasedRegistrationNames = dispatchConfig.phasedRegistrationNames; // 事件的触发阶段及其需要注册的事件名称
   if (phasedRegistrationNames) {
+    // 遍历事件的触发阶段，对触发阶段的事件名称进行注册，
+    // 向registrationNameModules和registrationNameDependencies中添加信息
     for (const phaseName in phasedRegistrationNames) {
       if (phasedRegistrationNames.hasOwnProperty(phaseName)) {
         const phasedRegistrationName = phasedRegistrationNames[phaseName];
+        // 向registrationNameModules和registrationNameDependencies中
+        // 添加注册的事件名和其所对应的事件插件和依赖
         publishRegistrationName(
           phasedRegistrationName,
           pluginModule,
@@ -139,6 +144,8 @@ function publishEventForPlugin(
 }
 
 // 发布用于标识已调度事件的注册名称
+// 将注册的事件名称和事件插件和所需依赖的事件数组hash表，
+// 也就是向registrationNameModules和registrationNameDependencies添加注册的事件名和其所对应的事件插件和依赖
 function publishRegistrationName(
   registrationName: string,   // 'onChange'
   pluginModule: PluginModule<AnyNativeEvent>,
@@ -151,8 +158,10 @@ function publishRegistrationName(
     registrationName,
   );
   // onChange: ChangeEventPlugin
+  // 注册的事件名和事件插件的key，value
   registrationNameModules[registrationName] = pluginModule;
   // onChange: [TOP_BLUR...]
+  // 注册的事件名和事件依赖的key，value
   registrationNameDependencies[registrationName] =
     pluginModule.eventTypes[eventName].dependencies;
 
@@ -178,17 +187,19 @@ function publishRegistrationName(
 // 注入的事件数组
 export const plugins = [];
 
-// 事件名称到调度配置的映射
+// 事件名称到触发阶段和对应的所需注册的事件名称的映射
 export const eventNameDispatchConfigs = {};
 
 /**
  * Mapping from registration name to plugin module
  */
+// 发布的事件名称和事件插件的hash表
 export const registrationNameModules = {};
 
 /**
  * Mapping from registration name to event name
  */
+// 发布的事件名称和所依赖的事件数组的hash表
 export const registrationNameDependencies = {};
 
 /**
@@ -203,6 +214,7 @@ export const possibleRegistrationNames = __DEV__ ? {} : (null: any);
 // 注入插件的顺序（按插件名称）。
 // 这使得排序与实际插件的注入分离，
 // 因此排序总是确定的，而不考虑包装、动态注入等。
+// 作用其拷贝一份injectedEventPluginOrder给eventPluginOrder
 export function injectEventPluginOrder(
   injectedEventPluginOrder: EventPluginOrder,
 ): void {
@@ -216,16 +228,8 @@ export function injectEventPluginOrder(
   recomputePluginOrdering();
 }
 
-/**
- * Injects plugins to be used by `EventPluginHub`. The plugin names must be
- * in the ordering injected by `injectEventPluginOrder`.
- *
- * Plugins can be injected as part of page initialization or on-the-fly.
- *
- * @param {object} injectedNamesToPlugins Map from names to plugin modules.
- * @internal
- * @see {EventPluginHub.injection.injectEventPluginsByName}
- */
+
+// 将事件放入namesToPlugins map中，以pluginName：plugin保存
 export function injectEventPluginsByName(
   injectedNamesToPlugins: NamesToPlugins,
 ): void {

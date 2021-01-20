@@ -124,8 +124,8 @@ function getListeningForDocument(mountAt: any) {
  * @param {object} mountAt Container where to mount the listener
  */
 export function listenTo(
-  registrationName: string,
-  mountAt: Document | Element,
+  registrationName: string, // 需要注册的事件名称
+  mountAt: Document | Element,  // 需要将事件挂载到其上的document对象
 ) {
   const isListening = getListeningForDocument(mountAt);
   const dependencies = registrationNameDependencies[registrationName];
