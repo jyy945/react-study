@@ -135,11 +135,14 @@ const nonInteractiveEventTypeNames: Array<EventTuple> = [
   [DOMTopLevelEventTypes.TOP_WHEEL, 'wheel'],
 ];
 
-const eventTypes: EventTypes = {};
+const eventTypes: EventTypes = {};  // 所有的基础事件类型以及对应的事件对象
+// 目前发现和eventType一样
 const topLevelEventsToDispatchConfig: {
   [key: TopLevelType]: DispatchConfig,
 } = {};
 
+// 根据事件类型，生成react事件对象
+// 因为为基本事件插件，所以每个事件对应的事件依赖都只有一个topEvent，也就是dom原生事件的名称
 function addEventTypeNameToConfig(
   [topEvent, event]: EventTuple,
   isInteractive: boolean,
@@ -159,6 +162,7 @@ function addEventTypeNameToConfig(
   topLevelEventsToDispatchConfig[topEvent] = type;
 }
 
+// 分别对交互和非交互类型的事件类型遍历对其进行配置
 interactiveEventTypeNames.forEach(eventTuple => {
   addEventTypeNameToConfig(eventTuple, true);
 });
@@ -206,6 +210,7 @@ const SimpleEventPlugin: PluginModule<MouseEvent> & {
 } = {
   eventTypes: eventTypes,
 
+  // 检查事件是否为交互类型的高等级事件
   isInteractiveTopLevelEventType(topLevelType: TopLevelType): boolean {
     const config = topLevelEventsToDispatchConfig[topLevelType];
     return config !== undefined && config.isInteractive === true;

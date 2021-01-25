@@ -177,7 +177,7 @@ export const mediaEventTypes = [
   TOP_VOLUME_CHANGE,
   TOP_WAITING,
 ];
-
+// 获取事件对应的原生dom事件名称
 export function getRawEventName(topLevelType: DOMTopLevelEventType): string {
   return unsafeCastDOMTopLevelTypeToString(topLevelType);
 }

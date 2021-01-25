@@ -84,14 +84,26 @@ import isEventSupported from './isEventSupported';
  *    React Core     .  General Purpose Event Plugin System
  */
 
+// 为记录被挂载的dom的索引和已经被注册的事件的映射，若事件已经被注册，则设置为true
+// 例如：
+// {
+//  0: {
+//    事件名： true
+//    ...
+//  }
+// }
 const alreadyListeningTo = {};
-let reactTopListenersCounter = 0;
+let reactTopListenersCounter = 0; // 可被挂载事件的dom的个数
 
 /**
  * To ensure no conflicts with other potential React instances on the page
  */
 const topListenersIDKey = '_reactListenersID' + ('' + Math.random()).slice(2);
 
+// 返回dom上已经挂载的事件的列表
+// 首次注册事件时会为该dom挂载一个_reactListenersID+随机数的属性，值为一个自增数，
+// 这个数记录了项目中可被挂载的dom的个数，若只有一个react项目，一般就为0
+// 然后对alreadyListeningTo赋值，这个对象记录了dom的索引和已经注册的事件。若事件为初次注册，则为空对象，
 function getListeningForDocument(mountAt: any) {
   // In IE8, `mountAt` is a host object and doesn't have `hasOwnProperty`
   // directly.
@@ -127,9 +139,12 @@ export function listenTo(
   registrationName: string, // 需要注册的事件名称
   mountAt: Document | Element,  // 需要将事件挂载到其上的document对象
 ) {
+  // 获取已经挂载的事件的列表
   const isListening = getListeningForDocument(mountAt);
+  // 获取注册该事件所需要依赖的事件
   const dependencies = registrationNameDependencies[registrationName];
 
+  // 遍历事件的事件依赖，若已注册的事件中还没有这个事件
   for (let i = 0; i < dependencies.length; i++) {
     const dependency = dependencies[i];
     if (!(isListening.hasOwnProperty(dependency) && isListening[dependency])) {

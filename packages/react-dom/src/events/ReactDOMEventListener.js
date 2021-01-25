@@ -46,7 +46,7 @@ function findRootContainerNode(inst) {
   return inst.stateNode.containerInfo;
 }
 
-// Used to store ancestor hierarchy in top level callback
+// 用于在顶级回调中存储祖先层次结构
 function getTopLevelCallbackBookKeeping(
   topLevelType,
   nativeEvent,
@@ -125,26 +125,20 @@ export function isEnabled() {
   return _enabled;
 }
 
-/**
- * Traps top-level events by using event bubbling.
- *
- * @param {number} topLevelType Number from `TopLevelEventTypes`.
- * @param {object} element Element on which to attach listener.
- * @return {?object} An object with a remove function which will forcefully
- *                  remove the listener.
- * @internal
- */
+// 通过事件冒泡来捕获顶级事件
 export function trapBubbledEvent(
-  topLevelType: DOMTopLevelEventType,
-  element: Document | Element,
+  topLevelType: DOMTopLevelEventType,   // 依赖事件名
+  element: Document | Element,  // dom
 ) {
   if (!element) {
     return null;
   }
+  // 根据事件是否为可交互的事件，选择不同的执行方法
+  // 这个执行方法为注册到dom的事件的回调函数，当事件触发时会执行
   const dispatch = isInteractiveTopLevelEventType(topLevelType)
     ? dispatchInteractiveEvent
     : dispatchEvent;
-
+  // 为dom注册冒泡事件
   addEventBubbleListener(
     element,
     getRawEventName(topLevelType),
@@ -192,8 +186,9 @@ export function dispatchEvent(
   if (!_enabled) {
     return;
   }
-
+// 获取事件触发的目标dom
   const nativeEventTarget = getEventTarget(nativeEvent);
+  // 获取这个dom最近的fiber
   let targetInst = getClosestInstanceFromNode(nativeEventTarget);
   if (
     targetInst !== null &&
@@ -207,6 +202,7 @@ export function dispatchEvent(
     targetInst = null;
   }
 
+  // 通过缓存池获取对象
   const bookKeeping = getTopLevelCallbackBookKeeping(
     topLevelType,
     nativeEvent,
@@ -214,8 +210,7 @@ export function dispatchEvent(
   );
 
   try {
-    // Event queue being processed in the same cycle allows
-    // `preventDefault`.
+    // 批量更新
     batchedUpdates(handleTopLevel, bookKeeping);
   } finally {
     releaseTopLevelCallbackBookKeeping(bookKeeping);

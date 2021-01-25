@@ -19,10 +19,7 @@ export function precacheFiberNode(hostInst, node) {
   node[internalInstanceKey] = hostInst;
 }
 
-/**
- * Given a DOM node, return the closest ReactDOMComponent or
- * ReactDOMTextComponent instance ancestor.
- */
+// 获取dom对应的fiber对象，若这个dom没有对应的fiber对象，则不断向上直到找到有fiber的dom
 export function getClosestInstanceFromNode(node) {
   if (node[internalInstanceKey]) {
     return node[internalInstanceKey];

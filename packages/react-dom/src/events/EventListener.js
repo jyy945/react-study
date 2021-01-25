@@ -7,6 +7,7 @@
  * @flow
  */
 
+// 为dom注册冒泡事件
 export function addEventBubbleListener(
   element: Document | Element,
   eventType: string,
