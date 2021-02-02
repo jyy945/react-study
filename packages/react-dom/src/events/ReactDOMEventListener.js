@@ -32,6 +32,7 @@ const callbackBookkeepingPool = [];
  * passed-in instance (for use when entire React trees are nested within each
  * other). If React trees are not nested, returns null.
  */
+// 获取riberRoot对应的dom
 function findRootContainerNode(inst) {
   // TODO: It may be a good idea to cache this to prevent unnecessary DOM
   // traversal, but caching is difficult to do correctly without using a
@@ -82,6 +83,7 @@ function releaseTopLevelCallbackBookKeeping(instance) {
   }
 }
 
+// 触发事件
 function handleTopLevel(bookKeeping) {
   let targetInst = bookKeeping.targetInst;
 
@@ -89,6 +91,8 @@ function handleTopLevel(bookKeeping) {
   // It's important that we build the array of ancestors before calling any
   // event handlers, because event handlers can modify the DOM, leading to
   // inconsistencies with ReactMount's node cache. See #1105.
+  // 因为在事件的触发过程中，可能会导致dom的修改，比如使用jq对dom进行修改，导致与ReactMount的节点缓存不一致
+  // 因此需要记录
   let ancestor = targetInst;
   do {
     if (!ancestor) {

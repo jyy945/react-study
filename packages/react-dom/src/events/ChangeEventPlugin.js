@@ -266,10 +266,11 @@ const ChangeEventPlugin = {
     nativeEvent,
     nativeEventTarget,
   ) {
+    // 通过fiber获取对应的dom节点
     const targetNode = targetInst ? getNodeFromInstance(targetInst) : window;
 
     let getTargetInstFunc, handleEventFunc;
-    if (shouldUseChangeEvent(targetNode)) {
+    if (shouldUseChangeEvent(targetNode)) { // dom为select、input、file
       getTargetInstFunc = getTargetInstForChangeEvent;
     } else if (isTextInputElement(targetNode)) {
       if (isInputEventSupported) {

@@ -29,8 +29,7 @@ export function getClosestInstanceFromNode(node) {
     if (node.parentNode) {
       node = node.parentNode;
     } else {
-      // Top of the tree. This node must not be part of a React tree (or is
-      // unmounted, potentially).
+      // 已经到了dom树的顶点
       return null;
     }
   }

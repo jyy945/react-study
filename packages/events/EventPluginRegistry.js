@@ -20,12 +20,13 @@ import {TOP_BLUR} from "react-dom/src/events/DOMTopLevelEventTypes";
 type NamesToPlugins = {[key: PluginName]: PluginModule<AnyNativeEvent>};
 type EventPluginOrder = null | Array<PluginName>;
 
-// 事件插件的注入顺序
+// 事件插件的注入顺序，保存着插件名。在injectEventPluginOrder中赋值
 let eventPluginOrder: EventPluginOrder = null;
 
 /**
  * Injectable mapping from names to event plugin modules.
  */
+// 插件名称和事件插件的映射
 const namesToPlugins: NamesToPlugins = {};
 
 // 使用注入的插件和插件排序重新计算插件列表。
@@ -99,6 +100,7 @@ function recomputePluginOrdering(): void {
 //   extractEvents：...
 // }
 // eventName: change
+// 对事件插件中的事件类型进行发布
 function publishEventForPlugin(
   dispatchConfig: DispatchConfig, // 事件插件eventTypes中的事件对象
   pluginModule: PluginModule<AnyNativeEvent>, // 事件插件
@@ -193,13 +195,13 @@ export const eventNameDispatchConfigs = {};
 /**
  * Mapping from registration name to plugin module
  */
-// 发布的事件名称和事件插件的hash表
+// 发布的事件名称和事件插件的映射
 export const registrationNameModules = {};
 
 /**
  * Mapping from registration name to event name
  */
-// 发布的事件名称和所依赖的事件数组的hash表
+// 发布的事件名称和所依赖的事件数组的映射
 export const registrationNameDependencies = {};
 
 /**
@@ -230,6 +232,7 @@ export function injectEventPluginOrder(
 
 
 // 将事件放入namesToPlugins map中，以pluginName：plugin保存
+// 然后执行recomputePluginOrdering，从新计算插件的顺序
 export function injectEventPluginsByName(
   injectedNamesToPlugins: NamesToPlugins,
 ): void {
