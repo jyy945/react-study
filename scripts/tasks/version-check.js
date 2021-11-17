@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
-
+// 保证主项目的版本和其他子项目的版本一致
 'use strict';
 
 const reactVersion = require('../../package.json').version;

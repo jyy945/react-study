@@ -53,16 +53,20 @@ const {
   RN_FB_PROFILING,
 } = Bundles.bundleTypes;
 
+// 将type中的字符串转为大写格式的数组
 const requestedBundleTypes = (argv.type || '')
   .split(',')
   .map(type => type.toUpperCase());
+// 获取自定义参数大写格式列表
 const requestedBundleNames = (argv._[0] || '')
   .split(',')
   .map(type => type.toLowerCase());
+// 获取自定义参数值
 const forcePrettyOutput = argv.pretty;
 const syncFBSourcePath = argv['sync-fbsource'];
 const syncWWWPath = argv['sync-www'];
 const shouldExtractErrors = argv['extract-errors'];
+
 const errorCodeOpts = {
   errorMapFilePath: 'scripts/error-codes/codes.json',
 };
@@ -178,7 +182,9 @@ function getFormat(bundleType) {
   }
 }
 
+// 根据入口文件名和全局名，获取文件名称
 function getFilename(name, globalName, bundleType) {
+  // 将入口文件路径转换为对应的文件名
   // we do this to replace / to -, for react-dom/server
   name = name.replace('/', '-');
   switch (bundleType) {
@@ -392,11 +398,14 @@ function getPlugins(
   ].filter(Boolean);
 }
 
+// 检查bundle中是否存在该bundletype，
 function shouldSkipBundle(bundle, bundleType) {
   const shouldSkipBundleType = bundle.bundleTypes.indexOf(bundleType) === -1;
   if (shouldSkipBundleType) {
     return true;
   }
+  // 查看命令行中是否存在bundletype值
+  // 并查看其中是否存在bundletype
   if (requestedBundleTypes.length > 0) {
     const isAskingForDifferentType = requestedBundleTypes.every(
       requestedType => bundleType.indexOf(requestedType) === -1
@@ -405,6 +414,7 @@ function shouldSkipBundle(bundle, bundleType) {
       return true;
     }
   }
+  // 查看自定义未赋值参数中是否存在该bundletype
   if (requestedBundleNames.length > 0) {
     const isAskingForDifferentNames = requestedBundleNames.every(
       requestedName => bundle.label.indexOf(requestedName) === -1
@@ -417,6 +427,7 @@ function shouldSkipBundle(bundle, bundleType) {
 }
 
 async function createBundle(bundle, bundleType) {
+  // 结合bundle中的bundletype和命令行中的参数，判断是否忽略该bundletype
   if (shouldSkipBundle(bundle, bundleType)) {
     return;
   }
@@ -424,7 +435,9 @@ async function createBundle(bundle, bundleType) {
   const filename = getFilename(bundle.entry, bundle.global, bundleType);
   const logKey =
     chalk.white.bold(filename) + chalk.dim(` (${bundleType.toLowerCase()})`);
+  // 获取打包格式
   const format = getFormat(bundleType);
+  // 根据bundle的入口文件获取根目录
   const packageName = Packaging.getPackageName(bundle.entry);
 
   let resolvedEntry = require.resolve(bundle.entry);
@@ -584,6 +597,7 @@ function handleRollupError(error) {
 }
 
 async function buildEverything() {
+  // 移除build文件夹下所有的资源
   await asyncRimRaf('build');
 
   // Run them serially for better console output

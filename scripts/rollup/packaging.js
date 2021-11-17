@@ -27,6 +27,7 @@ const {
   RN_FB_PROFILING,
 } = Bundles.bundleTypes;
 
+// 获取根目录
 function getPackageName(name) {
   if (name.indexOf('/') !== -1) {
     return name.split('/')[0];

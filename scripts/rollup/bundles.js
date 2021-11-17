@@ -53,6 +53,11 @@ const RECONCILER = moduleTypes.RECONCILER;
 // Non-Fiber implementations like SSR and Shallow renderers.
 const NON_FIBER_RENDERER = moduleTypes.NON_FIBER_RENDERER;
 
+// bundle
+{
+  entry: 入口文件
+  global: 全局名称
+}
 const bundles = [
   /******* Isomorphic *******/
   {
