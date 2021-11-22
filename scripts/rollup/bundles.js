@@ -57,6 +57,7 @@ const NON_FIBER_RENDERER = moduleTypes.NON_FIBER_RENDERER;
 {
   entry: 入口文件
   global: 全局名称
+  externals: 依赖
 }
 const bundles = [
   /******* Isomorphic *******/

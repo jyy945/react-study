@@ -1,5 +1,12 @@
 'use strict';
-
+/**
+ * 处理参数
+ * -type: 打包类型，例如：-type umd_dev,umd_prod
+ * -pretty
+ * -sync-fbsource
+ * -sync-www
+ * -extract-errors
+ */
 const {rollup} = require('rollup');
 const babel = require('rollup-plugin-babel');
 const closure = require('./plugins/closure-plugin');
@@ -11,6 +18,18 @@ const chalk = require('chalk');
 const path = require('path');
 const resolve = require('rollup-plugin-node-resolve');
 const fs = require('fs');
+/**
+ * 获取命令行中的参数
+ * process.argv原始格式：
+ * [
+      '/usr/local/bin/node',
+      '/Users/jyying/WebstormProjects/react-study/packages/demo.js',
+      '-name',
+      'jyy'
+    ]
+    使用minimist处理后的格式：
+    {_: [], name: 'jyy'}
+ *  */ 
 const argv = require('minimist')(process.argv.slice(2));
 const Modules = require('./modules');
 const Bundles = require('./bundles');
@@ -27,6 +46,7 @@ const Wrappers = require('./wrappers');
 
 // Errors in promises should be fatal.
 let loggedErrors = new Set();
+// 监听未处理的promise
 process.on('unhandledRejection', err => {
   if (loggedErrors.has(err)) {
     // No need to print it twice.
@@ -53,11 +73,11 @@ const {
   RN_FB_PROFILING,
 } = Bundles.bundleTypes;
 
-// 将type中的字符串转为大写格式的数组
+// 将打包类型type中的字符串转为大写格式的数组，-type="umd_dev,umd_prod"
 const requestedBundleTypes = (argv.type || '')
   .split(',')
   .map(type => type.toUpperCase());
-// 获取自定义参数大写格式列表
+// 获取无值参数，并转为大写
 const requestedBundleNames = (argv._[0] || '')
   .split(',')
   .map(type => type.toLowerCase());
@@ -67,6 +87,7 @@ const syncFBSourcePath = argv['sync-fbsource'];
 const syncWWWPath = argv['sync-www'];
 const shouldExtractErrors = argv['extract-errors'];
 
+// 错误代码配置项
 const errorCodeOpts = {
   errorMapFilePath: 'scripts/error-codes/codes.json',
 };
@@ -160,6 +181,7 @@ function getRollupOutputOptions(
   );
 }
 
+// 根据bundletype决定使用什么方式打包
 function getFormat(bundleType) {
   switch (bundleType) {
     case UMD_DEV:
@@ -398,14 +420,38 @@ function getPlugins(
   ].filter(Boolean);
 }
 
-// 检查bundle中是否存在该bundletype，
+/**
+ * 检查bundle中是否存在该bundletype，若不存在则跳过打包
+ * @param {*} bundle 
+ * {
+    label: 'core',
+    bundleTypes: [
+      UMD_DEV,
+      UMD_PROD,
+      UMD_PROFILING,
+      NODE_DEV,
+      NODE_PROD,
+      FB_WWW_DEV,
+      FB_WWW_PROD,
+      FB_WWW_PROFILING,
+    ],
+    moduleType: ISOMORPHIC,
+    entry: 'react',
+    global: 'React',
+    externals: [],
+  }
+ * @param {*} bundleType 
+ * @returns 
+ */
 function shouldSkipBundle(bundle, bundleType) {
   const shouldSkipBundleType = bundle.bundleTypes.indexOf(bundleType) === -1;
+  // 若bundleType不存在于bundle的bundleTypes中，则退出
   if (shouldSkipBundleType) {
     return true;
   }
-  // 查看命令行中是否存在bundletype值
-  // 并查看其中是否存在bundletype
+  // 查看命令行-type的值中是否存在bundletype值
+  // 并查看其中是否存在bundletyper
+  // 例如-type中若存在umd,则可以对UMD_DEV、UMD_PROD、UMD_PROFILING打包
   if (requestedBundleTypes.length > 0) {
     const isAskingForDifferentType = requestedBundleTypes.every(
       requestedType => bundleType.indexOf(requestedType) === -1
@@ -414,7 +460,8 @@ function shouldSkipBundle(bundle, bundleType) {
       return true;
     }
   }
-  // 查看自定义未赋值参数中是否存在该bundletype
+  // 查看无值参数中是否存在该bundletype
+  // 例如--umd，可以对UMD_DEV、UMD_PROD、UMD_PROFILING打包
   if (requestedBundleNames.length > 0) {
     const isAskingForDifferentNames = requestedBundleNames.every(
       requestedName => bundle.label.indexOf(requestedName) === -1
@@ -426,12 +473,36 @@ function shouldSkipBundle(bundle, bundleType) {
   return false;
 }
 
+/**
+ * 
+ * @param {*} bundle 
+ * {
+    label: 'core',
+    bundleTypes: [
+      UMD_DEV,
+      UMD_PROD,
+      UMD_PROFILING,
+      NODE_DEV,
+      NODE_PROD,
+      FB_WWW_DEV,
+      FB_WWW_PROD,
+      FB_WWW_PROFILING,
+    ],
+    moduleType: ISOMORPHIC,
+    entry: 'react',
+    global: 'React',
+    externals: [],
+  }
+ * @param {*} bundleType 
+ * @returns 
+ */
 async function createBundle(bundle, bundleType) {
   // 结合bundle中的bundletype和命令行中的参数，判断是否忽略该bundletype
   if (shouldSkipBundle(bundle, bundleType)) {
     return;
   }
 
+  // 根据bundle的entry和global获取处理后的文件名
   const filename = getFilename(bundle.entry, bundle.global, bundleType);
   const logKey =
     chalk.white.bold(filename) + chalk.dim(` (${bundleType.toLowerCase()})`);
@@ -441,6 +512,7 @@ async function createBundle(bundle, bundleType) {
   const packageName = Packaging.getPackageName(bundle.entry);
 
   let resolvedEntry = require.resolve(bundle.entry);
+  // 若为fb内部打包方式，则将后缀改为.fb.js
   if (
     bundleType === FB_WWW_DEV ||
     bundleType === FB_WWW_PROD ||
@@ -452,10 +524,12 @@ async function createBundle(bundle, bundleType) {
     }
   }
 
+  // umd类型需要打包依赖
   const shouldBundleDependencies =
     bundleType === UMD_DEV ||
     bundleType === UMD_PROD ||
     bundleType === UMD_PROFILING;
+    // 获取全局名称，例如['react'],返回{react: "React"}
   const peerGlobals = Modules.getPeerGlobals(bundle.externals, bundleType);
   let externals = Object.keys(peerGlobals);
   if (!shouldBundleDependencies) {
@@ -463,16 +537,29 @@ async function createBundle(bundle, bundleType) {
     externals = externals.concat(deps);
   }
 
+  /**
+   * 获取重要的副作用
+   * 用于设置rollup的pureExternalModules，如果为true，则假定没有导入任何内容的外部依赖项不会产生其他副作用，如更改全局变量或日志记录。
+   * // input file
+   * import { unused } from 'external-a';
+   * import 'external-b';
+   * console.log(42);
+   * 
+   * // output with treeshake.pureExternalModules === true
+   * console.log(42);
+   *  */ 
   const importSideEffects = Modules.getImportSideEffects();
   const pureExternalModules = Object.keys(importSideEffects).filter(
     module => !importSideEffects[module]
   );
 
+  // rollup 配置
   const rollupConfig = {
     input: resolvedEntry,
     treeshake: {
       pureExternalModules,
     },
+    // 设置rollup外部引入
     external(id) {
       const containsThisModule = pkg => id === pkg || id.startsWith(pkg + '/');
       const isProvidedByDependency = externals.some(containsThisModule);
@@ -481,6 +568,7 @@ async function createBundle(bundle, bundleType) {
       }
       return !!peerGlobals[id];
     },
+    // 警告信息处理
     onwarn: handleRollupWarning,
     plugins: getPlugins(
       bundle.entry,
@@ -528,7 +616,9 @@ async function createBundle(bundle, bundleType) {
   console.log(`${chalk.bgGreen.black(' COMPLETE ')} ${logKey}\n`);
 }
 
+// 设置rollup的onwarn警告处理配置
 function handleRollupWarning(warning) {
+  // 无效的外部应用
   if (warning.code === 'UNUSED_EXTERNAL_IMPORT') {
     const match = warning.message.match(/external module '([^']+)'/);
     if (!match || typeof match[1] !== 'string') {
@@ -603,6 +693,7 @@ async function buildEverything() {
   // Run them serially for better console output
   // and to avoid any potential race conditions.
   // eslint-disable-next-line no-for-of-loops/no-for-of-loops
+  // 针对不同的打包类型进行打包
   for (const bundle of Bundles.bundles) {
     await createBundle(bundle, UMD_DEV);
     await createBundle(bundle, UMD_PROD);
@@ -621,6 +712,10 @@ async function buildEverything() {
     await createBundle(bundle, RN_FB_PROFILING);
   }
 
+  /**
+   * 1.将rollup/shims中的facebook-www中所有文件复制到build/facebook-www/shims
+   * 2.将RN相关复制到build/react-native/shims目录下
+   */
   await Packaging.copyAllShims();
   await Packaging.prepareNpmPackages();
 

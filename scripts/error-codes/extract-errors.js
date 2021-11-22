@@ -26,8 +26,9 @@ const babylonOptions = {
     'trailingFunctionCommas',
     'objectRestSpread',
   ],
-};
+}; 
 
+// 导出错误代码映射
 module.exports = function(opts) {
   if (!opts || !('errorMapFilePath' in opts)) {
     throw new Error(
@@ -35,12 +36,14 @@ module.exports = function(opts) {
     );
   }
 
+  // 错误代码映射所在的文件路径
   const errorMapFilePath = opts.errorMapFilePath;
   let existingErrorMap;
   try {
     // Using `fs.readFileSync` instead of `require` here, because `require()`
     // calls are cached, and the cache map is not properly invalidated after
     // file changes.
+    // 使用fs.readFileSync，而不是require，是因为require调用会存在cached。被缓存的映射在文件被修改后是无效的
     existingErrorMap = JSON.parse(
       fs.readFileSync(
         path.join(__dirname, path.basename(errorMapFilePath)),
@@ -51,6 +54,7 @@ module.exports = function(opts) {
     existingErrorMap = {};
   }
 
+  // 获取全部的错误代码key
   const allErrorIDs = Object.keys(existingErrorMap);
   let currentID;
 
@@ -61,7 +65,7 @@ module.exports = function(opts) {
     currentID = Math.max.apply(null, allErrorIDs) + 1;
   }
 
-  // Here we invert the map object in memory for faster error code lookup
+  // 调转键与值
   existingErrorMap = invertObject(existingErrorMap);
 
   function transform(source) {

@@ -75,6 +75,9 @@ function getBundleOutputPaths(bundleType, filename, packageName) {
   }
 }
 
+/**
+ * /shims/facebook-www中的文件和文件夹递归复制到build/facebook-www/shims中
+ */
 async function copyWWWShims() {
   await asyncCopyTo(
     `${__dirname}/shims/facebook-www`,
@@ -82,6 +85,7 @@ async function copyWWWShims() {
   );
 }
 
+// 复制RN相关代码
 async function copyRNShims() {
   await Promise.all([
     // React Native
@@ -102,6 +106,7 @@ async function copyAllShims() {
   await Promise.all([copyWWWShims(), copyRNShims()]);
 }
 
+// 设置targz解压缩配置
 function getTarOptions(tgzName, packageName) {
   // Files inside the `npm pack`ed archive start
   // with "package/" in their paths. We'll undo
@@ -121,6 +126,10 @@ function getTarOptions(tgzName, packageName) {
   };
 }
 
+/**
+ * 将LICENSE和packages中各个包的package.json、README.md、npm复制到build/node_modules中
+ * 然后遍历这些包，并对其执行npm pack对其进行打包，生成tgz文件，随后删除这些包在build/node_modules中复制的包
+ */
 async function prepareNpmPackage(name) {
   await Promise.all([
     asyncCopyTo('LICENSE', `build/node_modules/${name}/LICENSE`),
@@ -134,9 +143,11 @@ async function prepareNpmPackage(name) {
     ),
     asyncCopyTo(`packages/${name}/npm`, `build/node_modules/${name}`),
   ]);
+  // 使用npm pack在本地打包，会在当前路径下生成一个tgz文件
   const tgzName = (await asyncExecuteCommand(
     `npm pack build/node_modules/${name}`
   )).trim();
+  // 移除build/node_modules/name文件夹
   await asyncRimRaf(`build/node_modules/${name}`);
   await asyncExtractTar(getTarOptions(tgzName, name));
   unlinkSync(tgzName);

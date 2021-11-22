@@ -28,6 +28,7 @@ const knownGlobals = Object.freeze({
 });
 
 // Given ['react'] in bundle externals, returns { 'react': 'React' }.
+// 根据knownGlobals获取对应的全局名称，例如['react'],返回{react: "React"}
 function getPeerGlobals(externals, bundleType) {
   const peerGlobals = {};
   externals.forEach(name => {
@@ -45,6 +46,7 @@ function getPeerGlobals(externals, bundleType) {
 }
 
 // Determines node_modules packages that are safe to assume will exist.
+// 获取依赖
 function getDependencies(bundleType, entry) {
   // Replaces any part of the entry that follow the package name (like
   // "/server" in "react-dom/server") by the path to the package settings
