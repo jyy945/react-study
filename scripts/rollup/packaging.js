@@ -129,6 +129,7 @@ function getTarOptions(tgzName, packageName) {
 /**
  * 将LICENSE和packages中各个包的package.json、README.md、npm复制到build/node_modules中
  * 然后遍历这些包，并对其执行npm pack对其进行打包，生成tgz文件，随后删除这些包在build/node_modules中复制的包
+ * 
  */
 async function prepareNpmPackage(name) {
   await Promise.all([
